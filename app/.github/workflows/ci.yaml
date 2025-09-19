@@ -100,7 +100,7 @@ jobs:
       - name: Checkout Manifest Repo
         uses: actions/checkout@v4
         with:
-          repository: 'your-username/your-manifest-repo'
+          repository: 'rockyx2000/chat-app-manifest'
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
 
