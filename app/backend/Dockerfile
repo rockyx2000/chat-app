@@ -1,23 +1,19 @@
-FROM node:18-alpine AS base
+FROM node:18-alpine AS build
 WORKDIR /app
 
-# 依存関係のみ先にインストール
+# 依存関係をインストール（dev含む）
 COPY package*.json ./
-RUN npm ci --omit=dev || npm install --omit=dev
+RUN npm ci
 
-# Prisma クライアント生成のためにスキーマをコピー
+# Prisma クライアント生成
 COPY prisma ./prisma
-RUN npx prisma generate || echo "skip prisma generate"
+RUN npx prisma generate
 
 # アプリ本体をコピー
-COPY src ./src
+COPY . .
+
+# 本番用にdev依存を削除
+RUN npm prune --omit=dev
 
 EXPOSE 8080
 CMD ["node", "src/server.js"]
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-EXPOSE 8080
-CMD ["node", "server.js"]
