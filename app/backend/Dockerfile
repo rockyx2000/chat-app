@@ -2,7 +2,7 @@ FROM node:18-alpine AS build
 WORKDIR /app
 
 ## 依存関係をインストール（prepare/prepareスクリプトは無効化）
-RUN apk add --no-cache openssl1.1-compat
+RUN apk add --no-cache openssl
 COPY package*.json ./
 RUN npm ci --ignore-scripts
 
