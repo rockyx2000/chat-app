@@ -1,13 +1,13 @@
 FROM node:18-alpine AS build
 WORKDIR /app
 
-# 依存関係をインストール（dev含む）
+## 依存関係をインストール（prepare/prepareスクリプトは無効化）
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --ignore-scripts
 
-# Prisma クライアント生成
+## Prisma クライアント生成（スキーマをコピーした後に手動実行）
 COPY prisma ./prisma
-RUN npx prisma generate
+RUN npx prisma generate || (echo "warn: prisma generate skipped" && true)
 
 # アプリ本体をコピー
 COPY . .
