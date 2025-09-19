@@ -1,0 +1,74 @@
+import React from 'react'
+import { io } from 'socket.io-client'
+
+export default function App() {
+  const [health, setHealth] = React.useState('...')
+  const [room, setRoom] = React.useState('general')
+  const [username, setUsername] = React.useState('user')
+  const [content, setContent] = React.useState('')
+  const [messages, setMessages] = React.useState([])
+  const socketRef = React.useRef(null)
+
+  React.useEffect(() => {
+    fetch('/api/health')
+      .then(r => r.json())
+      .then(d => setHealth(d.status))
+      .catch(() => setHealth('error'))
+  }, [])
+
+  const connect = () => {
+    if (socketRef.current) return
+    const socket = io('/', { path: '/socket.io' })
+    socket.on('connect', () => {
+      socket.emit('join', { room, username })
+    })
+    socket.on('system', msg => {
+      setMessages(m => [...m, { system: true, content: msg }])
+    })
+    socket.on('message', msg => {
+      setMessages(m => [...m, msg])
+    })
+    socketRef.current = socket
+  }
+
+  React.useEffect(() => {
+    // 履歴のプリフェッチ（author名込み）
+    fetch(`/api/channels/${encodeURIComponent(room)}/messages`)
+      .then(r => r.json())
+      .then(list => setMessages(list))
+      .catch(() => {})
+  }, [room])
+
+  const send = () => {
+    if (!socketRef.current || !content) return
+    socketRef.current.emit('message', { room, content })
+    setContent('')
+  }
+
+  return (
+    <div style={{ fontFamily: 'sans-serif', padding: 16 }}>
+      <h1>Chat App</h1>
+      <p>Backend health: {health}</p>
+
+      <div style={{ marginTop: 16 }}>
+        <input value={username} onChange={e => setUsername(e.target.value)} placeholder="name" />
+        <input value={room} onChange={e => setRoom(e.target.value)} placeholder="room" style={{ marginLeft: 8 }} />
+        <button onClick={connect} style={{ marginLeft: 8 }}>Connect</button>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <input value={content} onChange={e => setContent(e.target.value)} placeholder="message" style={{ width: 300 }} />
+        <button onClick={send} style={{ marginLeft: 8 }}>Send</button>
+      </div>
+
+      <ul style={{ marginTop: 16 }}>
+        {messages.map((m, i) => (
+          <li key={i}>
+            {m.system ? (<em>{m.content}</em>) : (<span><b>{m.username}:</b> {m.content}</span>)}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+

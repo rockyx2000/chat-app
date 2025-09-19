@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChannelType {
+  TEXT
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  avatarUrl    String?
+  passwordHash String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  servers      Server[]        @relation("ServerOwner")
+  memberships  Membership[]
+  messages     Message[]
+}
+
+model Server {
+  id        String   @id @default(cuid())
+  name      String
+  isPrivate Boolean  @default(false)
+  ownerId   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner      User        @relation("ServerOwner", fields: [ownerId], references: [id])
+  memberships Membership[]
+  channels    Channel[]
+}
+
+model Membership {
+  userId   String
+  serverId String
+  role     MembershipRole @default(MEMBER)
+  joinedAt DateTime       @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  server Server @relation(fields: [serverId], references: [id])
+
+  @@id([userId, serverId])
+}
+
+model Channel {
+  id        String      @id @default(cuid())
+  serverId  String
+  name      String
+  type      ChannelType @default(TEXT)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  server   Server   @relation(fields: [serverId], references: [id])
+  messages Message[]
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  editedAt  DateTime?
+
+  channel Channel @relation(fields: [channelId], references: [id])
+  author  User    @relation(fields: [userId], references: [id])
+}
+
