@@ -19,6 +19,5 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
-EXPOSE 8080 # アプリケーションがリッスンするポート
-CMD ["node", "server.js"] # アプリケーションの起動コマンド
-
+EXPOSE 8080
+CMD ["node", "server.js"]
