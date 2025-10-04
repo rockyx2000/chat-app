@@ -106,10 +106,12 @@ export default function App() {
   const switchChannel = async (channelName) => {
     if (isConnecting) return
     
+    console.log(`Switching to channel: ${channelName}`)
     setIsConnecting(true)
     
     // 既存の接続を切断
     if (socketRef.current) {
+      console.log('Disconnecting existing socket')
       socketRef.current.disconnect()
       socketRef.current = null
     }
@@ -118,13 +120,13 @@ export default function App() {
     setMessages([])
     
     // 新しいチャンネルに接続
+    console.log(`Connecting to channel: ${channelName}`)
     await connectToChannel(channelName)
     setIsConnecting(false)
+    console.log(`Successfully switched to channel: ${channelName}`)
   }
 
   const connectToChannel = async (channelName) => {
-    if (socketRef.current) return
-
     // 履歴をロード
     try {
       const historyRes = await fetch(`/api/channels/${channelName}/messages`)
@@ -135,6 +137,7 @@ export default function App() {
         picture: msg.picture,
         createdAt: new Date(msg.ts),
       })))
+      console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
     } catch (error) {
       console.error('Error loading message history:', error)
     }
