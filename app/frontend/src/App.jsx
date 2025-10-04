@@ -71,9 +71,19 @@ export default function App() {
     setContent('')
   }
 
+  const logout = () => {
+    // Cloudflare Accessのログアウトページにリダイレクト
+    window.location.href = '/cdn-cgi/access/logout'
+  }
+
   return (
     <div style={{ fontFamily: 'sans-serif', padding: 16 }}>
-      <h1>Chat App</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h1>Chat App</h1>
+        <button onClick={logout} style={{ padding: '8px 16px', cursor: 'pointer' }}>
+          Logout
+        </button>
+      </div>
       <p>Backend health: {health}</p>
 
       <div style={{ marginTop: 16 }}>

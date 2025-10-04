@@ -35,7 +35,17 @@ app.use((req, res, next) => {
           userName = decoded.custom.name
         }
         
-        console.log('JWT decoded:', { name: decoded?.name, given_name: decoded?.given_name, email: decoded?.email })
+        // プロフィール画像URLを取得
+        const userPicture = decoded?.picture || null
+        
+        console.log('JWT decoded:', { 
+          name: decoded?.name, 
+          given_name: decoded?.given_name, 
+          email: decoded?.email, 
+          picture: decoded?.picture 
+        })
+        
+        req.user.picture = userPicture
       } catch (err) {
         console.warn('Failed to decode JWT:', err.message)
       }
@@ -64,12 +74,14 @@ app.get('/api/me', (req, res) => {
   if (req.user.isAuthenticated) {
     res.json({
       email: req.user.email,
-      name: req.user.name
+      name: req.user.name,
+      picture: req.user.picture || null
     })
   } else {
     res.json({
       email: null,
-      name: null
+      name: null,
+      picture: null
     })
   }
 })
