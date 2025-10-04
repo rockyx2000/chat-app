@@ -3,6 +3,7 @@ import cors from 'cors'
 import http from 'http'
 import { Server as SocketIOServer } from 'socket.io'
 import { PrismaClient } from '@prisma/client'
+import jwt from 'jsonwebtoken'
 
 const app = express()
 const port = process.env.BACKEND_PORT || 8080
@@ -14,10 +15,32 @@ app.use(express.json())
 // Cloudflare Accessからユーザー情報を取得するミドルウェア
 app.use((req, res, next) => {
   const userEmail = req.headers['cf-access-authenticated-user-email']
+  const jwtToken = req.headers['cf-access-jwt-assertion']
   
   if (userEmail) {
-    // メールアドレスから名前を抽出（例: john.doe@gmail.com → john.doe）
-    const userName = userEmail.split('@')[0]
+    let userName = userEmail.split('@')[0] // デフォルト: メールの@前
+    
+    // JWTトークンからGoogleの表示名を取得を試みる
+    if (jwtToken) {
+      try {
+        // JWTをデコード（署名検証なし、情報取得のみ）
+        const decoded = jwt.decode(jwtToken)
+        
+        // Googleの名前が含まれている可能性のあるフィールド
+        if (decoded?.name) {
+          userName = decoded.name
+        } else if (decoded?.given_name || decoded?.family_name) {
+          userName = [decoded.given_name, decoded.family_name].filter(Boolean).join(' ')
+        } else if (decoded?.custom?.name) {
+          userName = decoded.custom.name
+        }
+        
+        console.log('JWT decoded:', { name: decoded?.name, given_name: decoded?.given_name, email: decoded?.email })
+      } catch (err) {
+        console.warn('Failed to decode JWT:', err.message)
+      }
+    }
+    
     req.user = {
       email: userEmail,
       name: userName,
