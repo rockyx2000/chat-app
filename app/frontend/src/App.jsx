@@ -70,6 +70,7 @@ export default function App() {
   const [channels] = React.useState(['general', 'random', 'help'])
   const [isLoading, setIsLoading] = React.useState(true)
   const [isConnecting, setIsConnecting] = React.useState(false)
+  const [onlineUsers, setOnlineUsers] = React.useState([])
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
@@ -159,6 +160,21 @@ export default function App() {
     socket.on('message', msg => {
       setMessages(m => [...m, { ...msg, createdAt: new Date(msg.ts) }])
     })
+    socket.on('user_joined', (userData) => {
+      setOnlineUsers(prev => {
+        const exists = prev.find(u => u.username === userData.username)
+        if (!exists) {
+          return [...prev, userData]
+        }
+        return prev
+      })
+    })
+    socket.on('user_left', (userData) => {
+      setOnlineUsers(prev => prev.filter(u => u.username !== userData.username))
+    })
+    socket.on('online_users', (users) => {
+      setOnlineUsers(users)
+    })
     socketRef.current = socket
   }
 
@@ -223,7 +239,7 @@ export default function App() {
     <ThemeProvider theme={discordTheme}>
       <CssBaseline />
       <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
-        {/* サイドバー */}
+        {/* 左サイドバー */}
         <Paper 
           elevation={0} 
           sx={{ 
@@ -545,6 +561,74 @@ export default function App() {
             </Box>
           </Box>
         </Box>
+
+        {/* 右サイドバー - 参加者一覧 */}
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            width: 200, 
+            bgcolor: 'background.paper',
+            borderRadius: 0,
+            borderLeft: '1px solid',
+            borderColor: 'divider',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          <Box sx={{ 
+            p: 2, 
+            borderBottom: '1px solid', 
+            borderColor: 'divider',
+            bgcolor: 'background.paper'
+          }}>
+            <Typography variant="subtitle2" color="text.primary" fontWeight="bold">
+              参加者 — {onlineUsers.length}
+            </Typography>
+          </Box>
+          
+          <Box sx={{ flex: 1, p: 1, overflow: 'auto' }}>
+            <List dense>
+              {onlineUsers.map((user, index) => (
+                <ListItem key={index} disablePadding>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1, 
+                    p: 1, 
+                    width: '100%',
+                    borderRadius: 1,
+                    '&:hover': {
+                      bgcolor: 'rgba(255, 255, 255, 0.05)'
+                    }
+                  }}>
+                    <Avatar 
+                      src={user.picture} 
+                      sx={{ width: 24, height: 24, bgcolor: 'primary.main' }}
+                    >
+                      {getInitials(user.username)}
+                    </Avatar>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography 
+                        variant="body2" 
+                        color="text.primary" 
+                        noWrap
+                        sx={{ fontSize: '0.8rem' }}
+                      >
+                        {user.username}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <OnlineIcon sx={{ fontSize: 8, color: 'success.main' }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        オンライン
+                      </Typography>
+                    </Box>
+                  </Box>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        </Paper>
       </Box>
     </ThemeProvider>
   )

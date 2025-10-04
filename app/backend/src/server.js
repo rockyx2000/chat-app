@@ -157,7 +157,7 @@ io.on('connection', socket => {
     socket.join(room)
     socket.data.username = username
     socket.data.picture = picture || null
-    socket.to(room).emit('system', `${username} joined`)
+    socket.to(room).emit('system', `${username}が参加しました`)
   })
 
   socket.on('message', ({ room, content }) => {
