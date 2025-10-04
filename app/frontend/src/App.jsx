@@ -1,6 +1,63 @@
 import React from 'react'
 import { io } from 'socket.io-client'
-import './App.css'
+import {
+  Box,
+  Paper,
+  Typography,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Avatar,
+  TextField,
+  IconButton,
+  Chip,
+  Skeleton,
+  CircularProgress,
+  Divider
+} from '@mui/material'
+import {
+  Hash as HashIcon,
+  Logout as LogoutIcon,
+  Send as SendIcon,
+  FiberManualRecord as OnlineIcon
+} from '@mui/icons-material'
+import { ThemeProvider, createTheme } from '@mui/material/styles'
+import CssBaseline from '@mui/material/CssBaseline'
+
+// Material UI ダークテーマ（Discord風）
+const discordTheme = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: {
+      main: '#5865f2', // Discord blue
+    },
+    secondary: {
+      main: '#f04747', // Discord red
+    },
+    background: {
+      default: '#36393f', // Discord dark gray
+      paper: '#2f3136', // Discord sidebar
+    },
+    text: {
+      primary: '#ffffff',
+      secondary: '#b9bbbe',
+    },
+  },
+  typography: {
+    fontFamily: '"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
+  },
+  components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#2f3136',
+        },
+      },
+    },
+  },
+})
 
 export default function App() {
   const [health, setHealth] = React.useState('...')
@@ -11,30 +68,46 @@ export default function App() {
   const [content, setContent] = React.useState('')
   const [messages, setMessages] = React.useState([])
   const [channels] = React.useState(['general', 'random', 'help'])
+  const [isLoading, setIsLoading] = React.useState(true)
+  const [isConnecting, setIsConnecting] = React.useState(false)
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
-    // ヘルスチェック
-    fetch('/api/health')
-      .then(r => r.json())
-      .then(d => setHealth(d.status))
-      .catch(() => setHealth('error'))
-    
-    // Cloudflare Accessで認証されたユーザー情報を取得
-    fetch('/api/me')
-      .then(r => r.json())
-      .then(data => {
-        if (data.name) {
-          setUsername(data.name)
-          setUserPicture(data.picture)
-          setUserEmail(data.email)
-          console.log('Logged in as:', data.email)
+    const initializeApp = async () => {
+      try {
+        setIsLoading(true)
+        
+        // ヘルスチェック
+        const healthResponse = await fetch('/api/health')
+        const healthData = await healthResponse.json()
+        setHealth(healthData.status)
+        
+        // Cloudflare Accessで認証されたユーザー情報を取得
+        const userResponse = await fetch('/api/me')
+        const userData = await userResponse.json()
+        
+        if (userData.name) {
+          setUsername(userData.name)
+          setUserPicture(userData.picture)
+          setUserEmail(userData.email)
+          console.log('Logged in as:', userData.email)
         }
-      })
-      .catch(err => console.error('Failed to fetch user info:', err))
+      } catch (err) {
+        console.error('Failed to initialize app:', err)
+        setHealth('error')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    initializeApp()
   }, [])
 
   const switchChannel = async (channelName) => {
+    if (isConnecting) return
+    
+    setIsConnecting(true)
+    
     // 既存の接続を切断
     if (socketRef.current) {
       socketRef.current.disconnect()
@@ -46,6 +119,7 @@ export default function App() {
     
     // 新しいチャンネルに接続
     await connectToChannel(channelName)
+    setIsConnecting(false)
   }
 
   const connectToChannel = async (channelName) => {
@@ -58,6 +132,7 @@ export default function App() {
       setMessages(history.map(msg => ({
         username: msg.username,
         content: msg.content,
+        picture: msg.picture,
         createdAt: new Date(msg.ts),
       })))
     } catch (error) {
@@ -118,108 +193,298 @@ export default function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // ローディング画面
+  if (isLoading) {
+    return (
+      <ThemeProvider theme={discordTheme}>
+        <CssBaseline />
+        <Box sx={{ 
+          display: 'flex', 
+          height: '100vh', 
+          bgcolor: 'background.default',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: 2
+        }}>
+          <CircularProgress size={60} />
+          <Typography variant="h6" color="text.secondary">
+            チャットアプリを読み込み中...
+          </Typography>
+        </Box>
+      </ThemeProvider>
+    )
+  }
+
   return (
-    <div className="app-container">
-      {/* サイドバー */}
-      <div className="sidebar">
-        <div className="server-header">
-          <h2>Chat Server</h2>
-        </div>
-        
-        <div className="channels-section">
-          <div className="section-title">TEXT CHANNELS</div>
-          {channels.map(channel => (
-            <div
-              key={channel}
-              className={`channel-item ${currentChannel === channel ? 'active' : ''}`}
-              onClick={() => switchChannel(channel)}
+    <ThemeProvider theme={discordTheme}>
+      <CssBaseline />
+      <Box sx={{ display: 'flex', height: '100vh', bgcolor: 'background.default' }}>
+        {/* サイドバー */}
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            width: 240, 
+            bgcolor: 'background.paper',
+            borderRadius: 0,
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          {/* サーバーヘッダー */}
+          <Box sx={{ 
+            p: 2, 
+            borderBottom: '1px solid', 
+            borderColor: 'divider',
+            bgcolor: 'background.paper'
+          }}>
+            <Typography variant="h6" color="text.primary" fontWeight="bold">
+              Chat Server
+            </Typography>
+          </Box>
+          
+          {/* チャンネルリスト */}
+          <Box sx={{ flex: 1, p: 1 }}>
+            <Typography 
+              variant="caption" 
+              color="text.secondary" 
+              sx={{ 
+                px: 2, 
+                py: 1, 
+                display: 'block',
+                textTransform: 'uppercase',
+                fontWeight: 'bold',
+                letterSpacing: 0.5
+              }}
             >
-              <span className="channel-hash">#</span>
-              <span className="channel-name">{channel}</span>
-            </div>
-          ))}
-        </div>
-        
-        <div className="user-panel">
-          <div className="user-info">
-            {userPicture ? (
-              <img src={userPicture} alt="avatar" className="user-avatar-small" />
+              TEXT CHANNELS
+            </Typography>
+            <List dense>
+              {channels.map(channel => (
+                <ListItem key={channel} disablePadding>
+                  <ListItemButton
+                    selected={currentChannel === channel}
+                    onClick={() => switchChannel(channel)}
+                    disabled={isConnecting}
+                    sx={{
+                      borderRadius: 1,
+                      mx: 1,
+                      '&.Mui-selected': {
+                        bgcolor: 'rgba(114, 137, 218, 0.1)',
+                        '&:hover': {
+                          bgcolor: 'rgba(114, 137, 218, 0.2)',
+                        }
+                      }
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 24 }}>
+                      <HashIcon fontSize="small" color="text.secondary" />
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={channel}
+                      primaryTypographyProps={{
+                        fontSize: '0.9rem',
+                        color: currentChannel === channel ? 'text.primary' : 'text.secondary'
+                      }}
+                    />
+                    {isConnecting && currentChannel === channel && (
+                      <CircularProgress size={16} />
+                    )}
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+          
+          {/* ユーザーパネル */}
+          <Box sx={{ 
+            p: 1, 
+            borderTop: '1px solid', 
+            borderColor: 'divider',
+            bgcolor: 'rgba(0,0,0,0.1)'
+          }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1 }}>
+              <Avatar 
+                src={userPicture} 
+                sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}
+              >
+                {getInitials(username)}
+              </Avatar>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" color="text.primary" noWrap>
+                  {username}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <OnlineIcon sx={{ fontSize: 8, color: 'success.main' }} />
+                  <Typography variant="caption" color="text.secondary">
+                    オンライン
+                  </Typography>
+                </Box>
+              </Box>
+              <IconButton 
+                size="small" 
+                onClick={logout}
+                sx={{ color: 'text.secondary' }}
+              >
+                <LogoutIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* メインコンテンツ */}
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* チャンネルヘッダー */}
+          <Box sx={{ 
+            p: 2, 
+            borderBottom: '1px solid', 
+            borderColor: 'divider',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
+          }}>
+            <HashIcon color="text.secondary" />
+            <Typography variant="h6" color="text.primary">
+              {currentChannel}
+            </Typography>
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Chip
+                icon={<OnlineIcon sx={{ fontSize: 8 }} />}
+                label={`Backend: ${health}`}
+                size="small"
+                color={health === 'ok' ? 'success' : 'error'}
+                variant="outlined"
+              />
+            </Box>
+          </Box>
+
+          {/* メッセージエリア */}
+          <Box sx={{ 
+            flex: 1, 
+            overflow: 'auto', 
+            p: 2,
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {messages.length === 0 && !isConnecting ? (
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                height: '100%',
+                flexDirection: 'column',
+                gap: 2
+              }}>
+                <Typography variant="h6" color="text.secondary">
+                  #{currentChannel} にようこそ！
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  メッセージを送信して会話を始めましょう
+                </Typography>
+              </Box>
             ) : (
-              <div className="user-avatar-small">{getInitials(username)}</div>
+              <Box>
+                {messages.map((m, i) => (
+                  <Box key={i} sx={{ mb: 2, display: 'flex', gap: 2 }}>
+                    {m.system ? (
+                      <Box sx={{ 
+                        textAlign: 'center', 
+                        width: '100%',
+                        py: 1
+                      }}>
+                        <Typography 
+                          variant="caption" 
+                          color="text.secondary"
+                          sx={{ 
+                            bgcolor: 'rgba(79, 84, 92, 0.16)',
+                            px: 2,
+                            py: 0.5,
+                            borderRadius: 1,
+                            fontStyle: 'italic'
+                          }}
+                        >
+                          {m.content}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <>
+                        <Avatar 
+                          src={m.picture} 
+                          sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}
+                        >
+                          {getInitials(m.username)}
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
+                            <Typography variant="body2" color="text.primary" fontWeight="bold">
+                              {m.username}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {m.createdAt.toLocaleTimeString('ja-JP', { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body1" color="text.primary">
+                            {m.content}
+                          </Typography>
+                        </Box>
+                      </>
+                    )}
+                  </Box>
+                ))}
+                <div ref={messagesEndRef} />
+              </Box>
             )}
-            <div className="user-details">
-              <div className="user-name">{username}</div>
-              <div className="user-status">オンライン</div>
-            </div>
-          </div>
-          <button className="logout-btn" onClick={logout} title="Logout">
-            🚪
-          </button>
-        </div>
-      </div>
+          </Box>
 
-      {/* メインコンテンツ */}
-      <div className="main-content">
-        {/* チャンネルヘッダー */}
-        <div className="channel-header">
-          <span className="channel-hash">#</span>
-          <span className="channel-title">{currentChannel}</span>
-          <div className="health-indicator">
-            <span className={`health-dot ${health === 'ok' ? 'online' : 'offline'}`}></span>
-            Backend: {health}
-          </div>
-        </div>
-
-        {/* メッセージエリア */}
-        <div className="messages-area">
-          <div className="messages-list">
-            {messages.map((m, i) => (
-              <div key={i} className={m.system ? 'system-message' : 'message'}>
-                {m.system ? (
-                  <div className="system-content">{m.content}</div>
-                ) : (
-                  <>
-                    <div className="message-avatar">
-                      {m.picture ? (
-                        <img src={m.picture} alt={m.username} className="avatar-img" />
-                      ) : (
-                        <div className="avatar-placeholder">{getInitials(m.username)}</div>
-                      )}
-                    </div>
-                    <div className="message-content">
-                      <div className="message-header">
-                        <span className="message-username">{m.username}</span>
-                        <span className="message-timestamp">
-                          {m.createdAt.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                      <div className="message-text">{m.content}</div>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        {/* 入力エリア */}
-        <div className="input-area">
-          <form onSubmit={send} className="message-form">
-            <input
-              type="text"
-              value={content}
-              onChange={e => setContent(e.target.value)}
-              placeholder={`#${currentChannel} にメッセージを送信`}
-              className="message-input"
-            />
-            <button type="submit" className="send-btn" disabled={!content.trim()}>
-              送信
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
+          {/* 入力エリア */}
+          <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Box component="form" onSubmit={send} sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                fullWidth
+                value={content}
+                onChange={e => setContent(e.target.value)}
+                placeholder={`#${currentChannel} にメッセージを送信`}
+                variant="outlined"
+                size="small"
+                disabled={isConnecting}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    bgcolor: 'rgba(255,255,255,0.05)',
+                    '&:hover': {
+                      bgcolor: 'rgba(255,255,255,0.1)',
+                    },
+                    '&.Mui-focused': {
+                      bgcolor: 'rgba(255,255,255,0.1)',
+                    }
+                  }
+                }}
+              />
+              <IconButton 
+                type="submit" 
+                disabled={!content.trim() || isConnecting}
+                color="primary"
+                sx={{ 
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                  },
+                  '&:disabled': {
+                    bgcolor: 'rgba(255,255,255,0.1)',
+                    color: 'text.secondary'
+                  }
+                }}
+              >
+                <SendIcon />
+              </IconButton>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+    </ThemeProvider>
   )
 }
 
