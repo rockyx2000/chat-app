@@ -67,8 +67,13 @@ const io = new SocketIOServer(httpServer, {
   cors: { origin: '*', credentials: false }
 })
 
+console.log('Socket.IO server initialized with path: /socket.io')
+
 io.on('connection', socket => {
+  console.log('Socket.IO client connected:', socket.id)
+  
   socket.on('join', ({ room, username }) => {
+    console.log(`User ${username} joining room: ${room}`)
     socket.join(room)
     socket.data.username = username
     socket.to(room).emit('system', `${username} joined`)
@@ -130,5 +135,6 @@ io.on('connection', socket => {
 
 httpServer.listen(port, () => {
   console.log(`backend listening on :${port}`)
+  console.log(`Socket.IO server available at http://localhost:${port}/socket.io`)
 })
 

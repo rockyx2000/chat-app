@@ -33,8 +33,15 @@ export default function App() {
     }
 
     const socket = io('/', { path: '/socket.io', query: { username } })
+    console.log('Socket.IO client connecting with username:', username)
+    
     socket.on('connect', () => {
+      console.log('Socket.IO client connected successfully')
       socket.emit('join', { room, username })
+    })
+    
+    socket.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error)
     })
     socket.on('system', msg => {
       setMessages(m => [...m, { system: true, content: msg }])
