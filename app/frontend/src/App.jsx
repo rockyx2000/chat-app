@@ -32,7 +32,7 @@ export default function App() {
       console.error('Error loading message history:', error)
     }
 
-    const socket = io('/', { path: '/socket.io', query: { username } })
+    const socket = io({ path: '/socket.io', query: { username } })
     console.log('Socket.IO client connecting with username:', username)
     
     socket.on('connect', () => {
