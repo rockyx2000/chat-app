@@ -115,19 +115,12 @@ io.on('connection', socket => {
           create: { email: `${username}@local`, name: username, passwordHash: 'n/a' },
           update: { name: username }
         })
-        const created = await prisma.message.create({
+        await prisma.message.create({
           data: {
             channelId: channel.id,
             userId: user.id,
             content
-          },
-          include: { author: true }
-        })
-        // 正式な保存結果（正確な時刻）を送るイベント（任意）
-        io.to(room).emit('message', {
-          username: created.author?.name ?? username,
-          content: created.content,
-          ts: created.createdAt
+          }
         })
       } catch (e) {
         // ログに出す程度（本実装ではloggerを使う）
