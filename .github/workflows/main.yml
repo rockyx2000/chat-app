@@ -39,7 +39,7 @@ jobs:
         id: tag
         run: |
           # 常にsha-xxxxxタグを使用（latestではなく）
-          echo "tag=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -83,7 +83,7 @@ jobs:
         id: tag
         run: |
           # 常にsha-xxxxxタグを使用（latestではなく）
-          echo "tag=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          echo "tag=sha-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
