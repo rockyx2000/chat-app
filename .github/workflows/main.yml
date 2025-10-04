@@ -108,6 +108,8 @@ jobs:
         run: |
           FRONTEND_TAG=${{ needs.build-and-push-frontend.outputs.image_tag }}
           BACKEND_TAG=${{ needs.build-and-push-backend.outputs.image_tag }}
+          echo "Frontend tag: ${FRONTEND_TAG}"
+          echo "Backend tag: ${BACKEND_TAG}"
           sed -i "s|ghcr.io/${{ github.repository_owner }}/chat-frontend:.*|ghcr.io/${{ github.repository_owner }}/chat-frontend:${FRONTEND_TAG}|g" manifest-repo/deployment.yaml
           sed -i "s|ghcr.io/${{ github.repository_owner }}/chat-backend:.*|ghcr.io/${{ github.repository_owner }}/chat-backend:${BACKEND_TAG}|g" manifest-repo/deployment.yaml
       - name: Commit and push changes
