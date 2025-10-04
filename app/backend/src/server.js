@@ -11,8 +11,44 @@ const prisma = new PrismaClient()
 app.use(cors({ origin: '*', credentials: false }))
 app.use(express.json())
 
+// Cloudflare Accessからユーザー情報を取得するミドルウェア
+app.use((req, res, next) => {
+  const userEmail = req.headers['cf-access-authenticated-user-email']
+  
+  if (userEmail) {
+    // メールアドレスから名前を抽出（例: john.doe@gmail.com → john.doe）
+    const userName = userEmail.split('@')[0]
+    req.user = {
+      email: userEmail,
+      name: userName,
+      isAuthenticated: true
+    }
+  } else {
+    // 認証されていない場合（開発環境やIPアドレス直接アクセス）
+    req.user = {
+      isAuthenticated: false
+    }
+  }
+  next()
+})
+
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'ok' })
+})
+
+// ログイン中のユーザー情報を返すAPI
+app.get('/api/me', (req, res) => {
+  if (req.user.isAuthenticated) {
+    res.json({
+      email: req.user.email,
+      name: req.user.name
+    })
+  } else {
+    res.json({
+      email: null,
+      name: null
+    })
+  }
 })
 
 // 履歴取得: 最新50件を新しい順→クライアント側で古い順に並べ替え可能

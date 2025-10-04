@@ -10,10 +10,22 @@ export default function App() {
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
+    // ヘルスチェック
     fetch('/api/health')
       .then(r => r.json())
       .then(d => setHealth(d.status))
       .catch(() => setHealth('error'))
+    
+    // Cloudflare Accessで認証されたユーザー情報を取得
+    fetch('/api/me')
+      .then(r => r.json())
+      .then(data => {
+        if (data.name) {
+          setUsername(data.name) // Googleアカウントの名前を自動設定
+          console.log('Logged in as:', data.email)
+        }
+      })
+      .catch(err => console.error('Failed to fetch user info:', err))
   }, [])
 
   const connect = async () => {
