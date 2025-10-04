@@ -116,16 +116,16 @@ app.get('/api/channels/:room/messages', async (req, res) => {
       include: { author: true },
       take: 50
     })
-    // author名、アバター画像、作成時刻を返す
-    const serialized = messages
-      .reverse()
-      .map(m => ({
-        id: m.id,
-        username: m.author?.name ?? 'unknown',
-        picture: m.author?.avatar || null,
-        content: m.content,
-        ts: m.createdAt
-      }))
+        // author名、アバター画像、作成時刻を返す
+        const serialized = messages
+          .reverse()
+          .map(m => ({
+            id: m.id,
+            username: m.author?.name ?? 'unknown',
+            picture: m.author?.avatarUrl || null,
+            content: m.content,
+            ts: m.createdAt
+          }))
     res.json(serialized)
   } catch (e) {
     // DB未準備時も落ちないようにする
@@ -186,8 +186,8 @@ io.on('connection', socket => {
         // authorは匿名ユーザーを簡易表現
         const user = await prisma.user.upsert({
           where: { email: `${username}@local` },
-          create: { email: `${username}@local`, name: username, passwordHash: 'n/a', avatar: picture },
-          update: { name: username, avatar: picture }
+          create: { email: `${username}@local`, name: username, passwordHash: 'n/a', avatarUrl: picture },
+          update: { name: username, avatarUrl: picture }
         })
         await prisma.message.create({
           data: {
