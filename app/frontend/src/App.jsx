@@ -239,7 +239,7 @@ export default function App() {
             bgcolor: 'background.paper'
           }}>
             <Typography variant="h6" color="text.primary" fontWeight="bold">
-              Chat Server
+              Chat-app
             </Typography>
           </Box>
           
@@ -394,7 +394,22 @@ export default function App() {
             ) : (
               <Box>
                 {messages.map((m, i) => (
-                  <Box key={i} sx={{ mb: 2, display: 'flex', gap: 2 }}>
+                  <Box 
+                    key={i} 
+                    sx={{ 
+                      mb: 2, 
+                      display: 'flex', 
+                      gap: 2,
+                      p: 1,
+                      borderRadius: 1,
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.05)',
+                        transform: 'translateX(4px)',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                      }
+                    }}
+                  >
                     {m.system ? (
                       <Box sx={{ 
                         textAlign: 'center', 
@@ -419,13 +434,32 @@ export default function App() {
                       <>
                         <Avatar 
                           src={m.picture} 
-                          sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}
+                          sx={{ 
+                            width: 40, 
+                            height: 40, 
+                            bgcolor: 'primary.main',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': {
+                              transform: 'scale(1.05)',
+                              boxShadow: '0 4px 12px rgba(88, 101, 242, 0.3)'
+                            }
+                          }}
                         >
                           {getInitials(m.username)}
                         </Avatar>
                         <Box sx={{ flex: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mb: 0.5 }}>
-                            <Typography variant="body2" color="text.primary" fontWeight="bold">
+                            <Typography 
+                              variant="body2" 
+                              color="text.primary" 
+                              fontWeight="bold"
+                              sx={{
+                                transition: 'color 0.2s ease-in-out',
+                                '&:hover': {
+                                  color: 'primary.main'
+                                }
+                              }}
+                            >
                               {m.username}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -435,7 +469,16 @@ export default function App() {
                               })}
                             </Typography>
                           </Box>
-                          <Typography variant="body1" color="text.primary">
+                          <Typography 
+                            variant="body1" 
+                            color="text.primary"
+                            sx={{
+                              transition: 'color 0.2s ease-in-out',
+                              '&:hover': {
+                                color: 'text.secondary'
+                              }
+                            }}
+                          >
                             {m.content}
                           </Typography>
                         </Box>
