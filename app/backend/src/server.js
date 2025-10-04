@@ -8,7 +8,7 @@ const app = express()
 const port = process.env.BACKEND_PORT || 8080
 const prisma = new PrismaClient()
 
-app.use(cors({ origin: true, credentials: true }))
+app.use(cors({ origin: '*', credentials: false }))
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {
@@ -64,7 +64,7 @@ app.get('/api/channels/:room/messages', async (req, res) => {
 const httpServer = http.createServer(app)
 const io = new SocketIOServer(httpServer, {
   path: '/socket.io',
-  cors: { origin: true, credentials: true }
+  cors: { origin: '*', credentials: false }
 })
 
 io.on('connection', socket => {
