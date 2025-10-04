@@ -206,6 +206,40 @@ export default function App() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
   }
 
+  const formatMessageTime = (date) => {
+    const now = new Date()
+    const messageDate = new Date(date)
+    const diffInHours = (now - messageDate) / (1000 * 60 * 60)
+    
+    // 今日の場合
+    if (diffInHours < 24 && messageDate.toDateString() === now.toDateString()) {
+      return messageDate.toLocaleTimeString('ja-JP', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })
+    }
+    
+    // 昨日の場合
+    const yesterday = new Date(now)
+    yesterday.setDate(yesterday.getDate() - 1)
+    if (messageDate.toDateString() === yesterday.toDateString()) {
+      return `昨日 ${messageDate.toLocaleTimeString('ja-JP', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      })}`
+    }
+    
+    // それ以前の場合
+    return messageDate.toLocaleString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      weekday: 'short'
+    })
+  }
+
   const messagesEndRef = React.useRef(null)
   
   React.useEffect(() => {
@@ -483,10 +517,7 @@ export default function App() {
                               {m.username}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {m.createdAt.toLocaleTimeString('ja-JP', { 
-                                hour: '2-digit', 
-                                minute: '2-digit' 
-                              })}
+                              {formatMessageTime(m.createdAt)}
                             </Typography>
                           </Box>
                           <Typography 
