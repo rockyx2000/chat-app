@@ -63,6 +63,7 @@ app.get('/api/channels/:room/messages', async (req, res) => {
 
 const httpServer = http.createServer(app)
 const io = new SocketIOServer(httpServer, {
+  path: '/socket.io',
   cors: { origin: true, credentials: true }
 })
 
