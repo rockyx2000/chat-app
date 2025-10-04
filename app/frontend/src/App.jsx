@@ -16,9 +16,23 @@ export default function App() {
       .catch(() => setHealth('error'))
   }, [])
 
-  const connect = () => {
+  const connect = async () => {
     if (socketRef.current) return
-    const socket = io('/', { path: '/socket.io' })
+
+    // 履歴をロード
+    try {
+      const historyRes = await fetch(`/api/channels/${room}/messages`)
+      const history = await historyRes.json()
+      setMessages(history.map(msg => ({
+        username: msg.username,
+        content: msg.content,
+        createdAt: new Date(msg.ts), // Dateオブジェクトに変換
+      })))
+    } catch (error) {
+      console.error('Error loading message history:', error)
+    }
+
+    const socket = io('/', { path: '/socket.io', query: { username } })
     socket.on('connect', () => {
       socket.emit('join', { room, username })
     })
@@ -26,18 +40,11 @@ export default function App() {
       setMessages(m => [...m, { system: true, content: msg }])
     })
     socket.on('message', msg => {
-      setMessages(m => [...m, msg])
+      setMessages(m => [...m, { ...msg, createdAt: new Date(msg.ts) }]) // Dateオブジェクトに変換
     })
     socketRef.current = socket
   }
 
-  React.useEffect(() => {
-    // 履歴のプリフェッチ（author名込み）
-    fetch(`/api/channels/${encodeURIComponent(room)}/messages`)
-      .then(r => r.json())
-      .then(list => setMessages(list))
-      .catch(() => {})
-  }, [room])
 
   const send = () => {
     if (!socketRef.current || !content) return
@@ -64,7 +71,13 @@ export default function App() {
       <ul style={{ marginTop: 16 }}>
         {messages.map((m, i) => (
           <li key={i}>
-            {m.system ? (<em>{m.content}</em>) : (<span><b>{m.username}:</b> {m.content}</span>)}
+            {m.system ? (
+              <em>{m.content}</em>
+            ) : (
+              <span>
+                <b>{m.username}:</b> {m.content} <small>({m.createdAt.toLocaleTimeString()})</small>
+              </span>
+            )}
           </li>
         ))}
       </ul>
