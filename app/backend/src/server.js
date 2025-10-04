@@ -19,6 +19,7 @@ app.use((req, res, next) => {
   
   if (userEmail) {
     let userName = userEmail.split('@')[0] // デフォルト: メールの@前
+    let userPicture = null
     
     // JWTトークンからGoogleの表示名を取得を試みる
     if (jwtToken) {
@@ -36,7 +37,7 @@ app.use((req, res, next) => {
         }
         
         // プロフィール画像URLを取得
-        const userPicture = decoded?.picture || null
+        userPicture = decoded?.picture || null
         
         console.log('JWT decoded:', { 
           name: decoded?.name, 
@@ -44,8 +45,6 @@ app.use((req, res, next) => {
           email: decoded?.email, 
           picture: decoded?.picture 
         })
-        
-        req.user.picture = userPicture
       } catch (err) {
         console.warn('Failed to decode JWT:', err.message)
       }
@@ -54,6 +53,7 @@ app.use((req, res, next) => {
     req.user = {
       email: userEmail,
       name: userName,
+      picture: userPicture,
       isAuthenticated: true
     }
   } else {
@@ -116,12 +116,13 @@ app.get('/api/channels/:room/messages', async (req, res) => {
       include: { author: true },
       take: 50
     })
-    // author名と作成時刻を返す
+    // author名、アバター画像、作成時刻を返す
     const serialized = messages
       .reverse()
       .map(m => ({
         id: m.id,
         username: m.author?.name ?? 'unknown',
+        picture: m.author?.avatar || null,
         content: m.content,
         ts: m.createdAt
       }))
@@ -151,16 +152,18 @@ console.log('Socket.IO server initialized with path: /socket.io')
 io.on('connection', socket => {
   console.log('Socket.IO client connected:', socket.id)
   
-  socket.on('join', ({ room, username }) => {
+  socket.on('join', ({ room, username, picture }) => {
     console.log(`User ${username} joining room: ${room}`)
     socket.join(room)
     socket.data.username = username
+    socket.data.picture = picture || null
     socket.to(room).emit('system', `${username} joined`)
   })
 
   socket.on('message', ({ room, content }) => {
     const username = socket.data.username || 'anonymous'
-    const payload = { username, content, ts: Date.now() }
+    const picture = socket.data.picture || null
+    const payload = { username, picture, content, ts: Date.now() }
     io.to(room).emit('message', payload)
     // 永続化（失敗してもリアルタイムは継続）
     ;(async () => {
@@ -183,8 +186,8 @@ io.on('connection', socket => {
         // authorは匿名ユーザーを簡易表現
         const user = await prisma.user.upsert({
           where: { email: `${username}@local` },
-          create: { email: `${username}@local`, name: username, passwordHash: 'n/a' },
-          update: { name: username }
+          create: { email: `${username}@local`, name: username, passwordHash: 'n/a', avatar: picture },
+          update: { name: username, avatar: picture }
         })
         await prisma.message.create({
           data: {
