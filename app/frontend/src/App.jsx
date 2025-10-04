@@ -433,17 +433,18 @@ export default function App() {
                       <Box sx={{ 
                         textAlign: 'center', 
                         width: '100%',
-                        py: 1
+                        py: 0.5
                       }}>
                         <Typography 
                           variant="caption" 
                           color="text.secondary"
                           sx={{ 
                             bgcolor: 'rgba(79, 84, 92, 0.16)',
-                            px: 2,
-                            py: 0.5,
-                            borderRadius: 1,
-                            fontStyle: 'italic'
+                            px: 1.5,
+                            py: 0.25,
+                            borderRadius: 0.5,
+                            fontStyle: 'italic',
+                            fontSize: '0.7rem'
                           }}
                         >
                           {m.content}
