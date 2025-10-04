@@ -18,10 +18,10 @@ import {
   Divider
 } from '@mui/material'
 import {
-  Hash as HashIcon,
-  Logout as LogoutIcon,
+  Tag as HashIcon,
+  ExitToApp as LogoutIcon,
   Send as SendIcon,
-  FiberManualRecord as OnlineIcon
+  Circle as OnlineIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -324,7 +324,16 @@ export default function App() {
               <IconButton 
                 size="small" 
                 onClick={logout}
-                sx={{ color: 'text.secondary' }}
+                sx={{ 
+                  color: 'text.secondary',
+                  '&:hover': {
+                    color: 'error.main',
+                    bgcolor: 'rgba(244, 67, 54, 0.1)',
+                    transform: 'scale(1.1)',
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
+                title="ログアウト"
               >
                 <LogoutIcon fontSize="small" />
               </IconButton>
@@ -471,12 +480,19 @@ export default function App() {
                   color: 'white',
                   '&:hover': {
                     bgcolor: 'primary.dark',
+                    transform: 'scale(1.05)',
+                    boxShadow: '0 4px 12px rgba(88, 101, 242, 0.4)',
                   },
                   '&:disabled': {
                     bgcolor: 'rgba(255,255,255,0.1)',
-                    color: 'text.secondary'
-                  }
+                    color: 'text.secondary',
+                    transform: 'none',
+                    boxShadow: 'none'
+                  },
+                  transition: 'all 0.2s ease-in-out',
+                  boxShadow: '0 2px 8px rgba(88, 101, 242, 0.2)'
                 }}
+                title="メッセージを送信"
               >
                 <SendIcon />
               </IconButton>
