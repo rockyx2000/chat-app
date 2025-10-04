@@ -149,15 +149,103 @@ const io = new SocketIOServer(httpServer, {
 
 console.log('Socket.IO server initialized with path: /socket.io')
 
+// オンラインユーザー一覧を取得する関数
+async function getOnlineUsers(room) {
+  try {
+    const systemUser = await prisma.user.upsert({
+      where: { email: 'system@local' },
+      create: { id: 'system', email: 'system@local', name: 'system', passwordHash: 'n/a' },
+      update: {}
+    })
+    
+    const server = await prisma.server.upsert({
+      where: { id: 'default' },
+      create: { id: 'default', name: 'default', ownerId: systemUser.id },
+      update: {}
+    })
+    
+    const memberships = await prisma.membership.findMany({
+      where: { serverId: server.id },
+      include: { user: true }
+    })
+    
+    return memberships.map(membership => ({
+      username: membership.user.name,
+      picture: membership.user.avatarUrl,
+      joinedAt: membership.joinedAt
+    }))
+  } catch (error) {
+    console.error('Error getting online users:', error)
+    return []
+  }
+}
+
 io.on('connection', socket => {
   console.log('Socket.IO client connected:', socket.id)
   
-  socket.on('join', ({ room, username, picture }) => {
+  socket.on('join', async ({ room, username, picture }) => {
     console.log(`User ${username} joining room: ${room}`)
     socket.join(room)
     socket.data.username = username
     socket.data.picture = picture || null
-    socket.to(room).emit('system', `${username}が参加しました`)
+    
+    try {
+      // システムユーザーとサーバーを準備
+      const systemUser = await prisma.user.upsert({
+        where: { email: 'system@local' },
+        create: { id: 'system', email: 'system@local', name: 'system', passwordHash: 'n/a' },
+        update: {}
+      })
+      
+      const server = await prisma.server.upsert({
+        where: { id: 'default' },
+        create: { id: 'default', name: 'default', ownerId: systemUser.id },
+        update: {}
+      })
+      
+      const channel = await prisma.channel.upsert({
+        where: { id: `${server.id}:${room}` },
+        create: { id: `${server.id}:${room}`, serverId: server.id, name: room },
+        update: {}
+      })
+      
+      // ユーザーを準備
+      const user = await prisma.user.upsert({
+        where: { email: `${username}@local` },
+        create: { email: `${username}@local`, name: username, passwordHash: 'n/a', avatarUrl: picture },
+        update: { name: username, avatarUrl: picture }
+      })
+      
+      // メンバーシップを確認・作成
+      const existingMembership = await prisma.membership.findUnique({
+        where: { userId_serverId: { userId: user.id, serverId: server.id } }
+      })
+      
+      if (!existingMembership) {
+        // 初回参加の場合のみ通知
+        await prisma.membership.create({
+          data: {
+            userId: user.id,
+            serverId: server.id,
+            role: 'MEMBER'
+          }
+        })
+        socket.to(room).emit('system', `${username}が参加しました`)
+        console.log(`First time join: ${username} joined ${room}`)
+      } else {
+        console.log(`Already a member: ${username} in ${room}`)
+      }
+      
+      // オンラインユーザー一覧を更新
+      const onlineUsers = await getOnlineUsers(room)
+      socket.emit('online_users', onlineUsers)
+      socket.to(room).emit('online_users', onlineUsers)
+      
+    } catch (error) {
+      console.error('Error handling join:', error)
+      // エラーが発生しても参加通知は送信
+      socket.to(room).emit('system', `${username}が参加しました`)
+    }
   })
 
   socket.on('message', ({ room, content }) => {
