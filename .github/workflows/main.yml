@@ -38,7 +38,8 @@ jobs:
       - name: Decide primary tag
         id: tag
         run: |
-          if [ -n "${{ steps.meta.outputs.version }}" ]; then echo "tag=${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT; else echo "tag=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT; fi
+          # 常にsha-xxxxxタグを使用（latestではなく）
+          echo "tag=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v6
@@ -81,7 +82,8 @@ jobs:
       - name: Decide primary tag
         id: tag
         run: |
-          if [ -n "${{ steps.meta.outputs.version }}" ]; then echo "tag=${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT; else echo "tag=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT; fi
+          # 常にsha-xxxxxタグを使用（latestではなく）
+          echo "tag=sha-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
