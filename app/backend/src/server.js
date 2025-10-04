@@ -64,7 +64,15 @@ app.get('/api/channels/:room/messages', async (req, res) => {
 const httpServer = http.createServer(app)
 const io = new SocketIOServer(httpServer, {
   path: '/socket.io',
-  cors: { origin: '*', credentials: false }
+  cors: {
+    origin: '*',
+    credentials: false,
+    methods: ['GET', 'POST']
+  },
+  allowEIO3: true,
+  transports: ['polling', 'websocket'],
+  pingTimeout: 60000,
+  pingInterval: 25000
 })
 
 console.log('Socket.IO server initialized with path: /socket.io')
