@@ -1215,10 +1215,13 @@ export default function App() {
                   {deleteModal.username}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {new Date(deleteModal.timestamp).toLocaleTimeString('ja-JP', { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
+                  {deleteModal.createdAt ? 
+                    deleteModal.createdAt.toLocaleTimeString('ja-JP', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    }) : 
+                    '時刻不明'
+                  }
                 </Typography>
               </Box>
               <Typography variant="body2" color="text.primary">
