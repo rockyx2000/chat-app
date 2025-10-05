@@ -344,50 +344,56 @@ io.on('connection', socket => {
     }
   })
 
-  socket.on('message', ({ room, content }) => {
+  socket.on('message', async ({ room, content }) => {
     const username = socket.data.username || 'anonymous'
     const picture = socket.data.picture || null
-    const payload = { username, picture, content, ts: Date.now() }
-    io.to(room).emit('message', payload)
-    // 永続化（失敗してもリアルタイムは継続）
-    ;(async () => {
-      try {
-        const systemUser = await prisma.user.upsert({
-          where: { email: 'system@local' },
-          create: { id: 'system', email: 'system@local', name: 'system', passwordHash: 'n/a' },
-          update: {}
-        })
-        const server = await prisma.server.upsert({
-          where: { id: 'default' },
-          create: { id: 'default', name: 'default', ownerId: systemUser.id },
-          update: {}
-        })
-        const channel = await prisma.channel.upsert({
-          where: { id: `${server.id}:${room}` },
-          create: { id: `${server.id}:${room}`, serverId: server.id, name: room },
-          update: {}
-        })
-        // authorは匿名ユーザーを簡易表現
-        const user = await prisma.user.upsert({
-          where: { email: `${username}@local` },
-          create: { email: `${username}@local`, name: username, passwordHash: 'n/a', avatarUrl: picture },
-          update: { name: username, avatarUrl: picture }
-        })
-        const message = await prisma.message.create({
-          data: {
-            channelId: channel.id,
-            userId: user.id,
-            content
-          }
-        })
-        // メッセージIDを追加してクライアントに送信
-        payload.id = message.id
-        io.to(room).emit('message', payload)
-      } catch (e) {
-        // ログに出す程度（本実装ではloggerを使う）
-        console.warn('persist failed:', e?.message)
+    
+    try {
+      const systemUser = await prisma.user.upsert({
+        where: { email: 'system@local' },
+        create: { id: 'system', email: 'system@local', name: 'system', passwordHash: 'n/a' },
+        update: {}
+      })
+      const server = await prisma.server.upsert({
+        where: { id: 'default' },
+        create: { id: 'default', name: 'default', ownerId: systemUser.id },
+        update: {}
+      })
+      const channel = await prisma.channel.upsert({
+        where: { id: `${server.id}:${room}` },
+        create: { id: `${server.id}:${room}`, serverId: server.id, name: room },
+        update: {}
+      })
+      // authorは匿名ユーザーを簡易表現
+      const user = await prisma.user.upsert({
+        where: { email: `${username}@local` },
+        create: { email: `${username}@local`, name: username, passwordHash: 'n/a', avatarUrl: picture },
+        update: { name: username, avatarUrl: picture }
+      })
+      const message = await prisma.message.create({
+        data: {
+          channelId: channel.id,
+          userId: user.id,
+          content
+        }
+      })
+      
+      // メッセージIDを含めて一度だけ送信
+      const payload = { 
+        id: message.id,
+        username, 
+        picture, 
+        content, 
+        ts: message.createdAt.getTime(),
+        editedAt: message.editedAt
       }
-    })()
+      io.to(room).emit('message', payload)
+    } catch (e) {
+      // エラーが発生した場合でもリアルタイム通知は送信
+      console.warn('persist failed:', e?.message)
+      const payload = { username, picture, content, ts: Date.now() }
+      io.to(room).emit('message', payload)
+    }
   })
 
   // メッセージ編集イベント

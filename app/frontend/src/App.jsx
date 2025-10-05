@@ -152,10 +152,12 @@ export default function App() {
       const historyRes = await fetch(`/api/channels/${channelName}/messages`)
       const history = await historyRes.json()
       setMessages(history.map(msg => ({
+        id: msg.id,
         username: msg.username,
         content: msg.content,
         picture: msg.picture,
         createdAt: new Date(msg.ts),
+        editedAt: msg.editedAt ? new Date(msg.editedAt) : null
       })))
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
     } catch (error) {
@@ -177,7 +179,11 @@ export default function App() {
       setMessages(m => [...m, { system: true, content: msg }])
     })
     socket.on('message', msg => {
-      setMessages(m => [...m, { ...msg, createdAt: new Date(msg.ts) }])
+      setMessages(m => [...m, { 
+        ...msg, 
+        createdAt: new Date(msg.ts),
+        editedAt: msg.editedAt ? new Date(msg.editedAt) : null
+      }])
     })
     socket.on('user_joined', (userData) => {
       setOnlineUsers(prev => {
