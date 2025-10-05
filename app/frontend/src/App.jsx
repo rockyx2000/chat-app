@@ -21,7 +21,13 @@ import {
   Tag as HashIcon,
   ExitToApp as LogoutIcon,
   Send as SendIcon,
-  Circle as OnlineIcon
+  Circle as OnlineIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
+  Security as SecurityIcon,
+  Login as LoginIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -71,6 +77,10 @@ export default function App() {
   const [isLoading, setIsLoading] = React.useState(true)
   const [isConnecting, setIsConnecting] = React.useState(false)
   const [onlineUsers, setOnlineUsers] = React.useState([])
+  const [editingMessage, setEditingMessage] = React.useState(null)
+  const [editContent, setEditContent] = React.useState('')
+  const [isAuthenticated, setIsAuthenticated] = React.useState(false)
+  const [authError, setAuthError] = React.useState(null)
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
@@ -87,11 +97,15 @@ export default function App() {
         const userResponse = await fetch('/api/me')
         const userData = await userResponse.json()
         
-        if (userData.name) {
+        if (userData.name && userData.email) {
           setUsername(userData.name)
           setUserPicture(userData.picture)
           setUserEmail(userData.email)
+          setIsAuthenticated(true)
           console.log('Logged in as:', userData.email)
+        } else {
+          setIsAuthenticated(false)
+          setAuthError('Google OAuth認証が必要です。')
         }
       } catch (err) {
         console.error('Failed to initialize app:', err)
@@ -175,6 +189,18 @@ export default function App() {
     socket.on('online_users', (users) => {
       setOnlineUsers(users)
     })
+    socket.on('message_edited', (updatedMessage) => {
+      setMessages(prev => prev.map(msg => 
+        msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, createdAt: new Date(updatedMessage.ts) } : msg
+      ))
+    })
+    socket.on('message_deleted', ({ id }) => {
+      setMessages(prev => prev.filter(msg => msg.id !== id))
+    })
+    socket.on('error', (error) => {
+      console.error('Socket error:', error.message)
+      // エラーメッセージを表示する場合はここで処理
+    })
     socketRef.current = socket
   }
 
@@ -197,8 +223,43 @@ export default function App() {
     setContent('')
   }
 
+  const startEdit = (message) => {
+    setEditingMessage(message.id)
+    setEditContent(message.content)
+  }
+
+  const cancelEdit = () => {
+    setEditingMessage(null)
+    setEditContent('')
+  }
+
+  const saveEdit = () => {
+    if (!socketRef.current || !editingMessage || !editContent.trim()) return
+    socketRef.current.emit('edit_message', { 
+      room: currentChannel, 
+      messageId: editingMessage, 
+      content: editContent.trim() 
+    })
+    setEditingMessage(null)
+    setEditContent('')
+  }
+
+  const deleteMessage = (messageId) => {
+    if (!socketRef.current || !messageId) return
+    if (window.confirm('このメッセージを削除しますか？')) {
+      socketRef.current.emit('delete_message', { 
+        room: currentChannel, 
+        messageId 
+      })
+    }
+  }
+
   const logout = () => {
     window.location.href = '/cdn-cgi/access/logout'
+  }
+
+  const retryAuth = () => {
+    window.location.reload()
   }
 
   const getInitials = (name) => {
@@ -264,6 +325,83 @@ export default function App() {
           <Typography variant="h6" color="text.secondary">
             チャットアプリを読み込み中...
           </Typography>
+        </Box>
+      </ThemeProvider>
+    )
+  }
+
+  // 認証エラーページ
+  if (!isAuthenticated) {
+    return (
+      <ThemeProvider theme={discordTheme}>
+        <CssBaseline />
+        <Box sx={{ 
+          display: 'flex', 
+          height: '100vh', 
+          bgcolor: 'background.default',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: 3,
+          p: 3
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            gap: 2,
+            textAlign: 'center',
+            maxWidth: 500
+          }}>
+            <SecurityIcon sx={{ fontSize: 80, color: 'error.main' }} />
+            <Typography variant="h4" color="text.primary" fontWeight="bold">
+              認証が必要です
+            </Typography>
+            <Typography variant="h6" color="text.secondary">
+              {authError || 'Google OAuth認証が必要です。'}
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mt: 2 }}>
+              このチャットアプリを使用するには、Googleアカウントでの認証が必要です。
+              <br />
+              管理者にお問い合わせいただくか、認証設定を確認してください。
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+              <IconButton 
+                onClick={retryAuth}
+                sx={{ 
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  px: 3,
+                  py: 1,
+                  '&:hover': {
+                    bgcolor: 'primary.dark',
+                    transform: 'scale(1.05)',
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
+              >
+                <LoginIcon sx={{ mr: 1 }} />
+                再試行
+              </IconButton>
+              <IconButton 
+                onClick={() => window.location.href = '/cdn-cgi/access/logout'}
+                sx={{ 
+                  bgcolor: 'error.main',
+                  color: 'white',
+                  px: 3,
+                  py: 1,
+                  '&:hover': {
+                    bgcolor: 'error.dark',
+                    transform: 'scale(1.05)',
+                  },
+                  transition: 'all 0.2s ease-in-out'
+                }}
+              >
+                <LogoutIcon sx={{ mr: 1 }} />
+                ログアウト
+              </IconButton>
+            </Box>
+          </Box>
         </Box>
       </ThemeProvider>
     )
@@ -459,7 +597,10 @@ export default function App() {
                       '&:hover': {
                         bgcolor: 'rgba(255, 255, 255, 0.05)',
                         transform: 'translateX(4px)',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+                        '& .message-actions': {
+                          opacity: 1
+                        }
                       }
                     }}
                   >
@@ -519,19 +660,114 @@ export default function App() {
                             <Typography variant="caption" color="text.secondary">
                               {formatMessageTime(m.createdAt)}
                             </Typography>
+                            {m.editedAt && (
+                              <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                (編集済み)
+                              </Typography>
+                            )}
                           </Box>
-                          <Typography 
-                            variant="body1" 
-                            color="text.primary"
-                            sx={{
-                              transition: 'color 0.2s ease-in-out',
-                              '&:hover': {
-                                color: 'text.secondary'
-                              }
-                            }}
-                          >
-                            {m.content}
-                          </Typography>
+                          
+                          {editingMessage === m.id ? (
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                              <TextField
+                                fullWidth
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                variant="outlined"
+                                size="small"
+                                multiline
+                                maxRows={4}
+                                sx={{
+                                  '& .MuiOutlinedInput-root': {
+                                    bgcolor: 'rgba(255,255,255,0.05)',
+                                    '&:hover': {
+                                      bgcolor: 'rgba(255,255,255,0.1)',
+                                    },
+                                    '&.Mui-focused': {
+                                      bgcolor: 'rgba(255,255,255,0.1)',
+                                    }
+                                  }
+                                }}
+                              />
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={saveEdit}
+                                  sx={{ 
+                                    bgcolor: 'success.main',
+                                    color: 'white',
+                                    '&:hover': {
+                                      bgcolor: 'success.dark',
+                                    }
+                                  }}
+                                >
+                                  <CheckIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={cancelEdit}
+                                  sx={{ 
+                                    bgcolor: 'error.main',
+                                    color: 'white',
+                                    '&:hover': {
+                                      bgcolor: 'error.dark',
+                                    }
+                                  }}
+                                >
+                                  <CloseIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            </Box>
+                          ) : (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography 
+                                variant="body1" 
+                                color="text.primary"
+                                sx={{
+                                  transition: 'color 0.2s ease-in-out',
+                                  '&:hover': {
+                                    color: 'text.secondary'
+                                  }
+                                }}
+                              >
+                                {m.content}
+                              </Typography>
+                              
+                              {/* 自分のメッセージの場合のみ編集・削除ボタンを表示 */}
+                              {m.username === username && m.id && (
+                                <Box className="message-actions" sx={{ display: 'flex', gap: 0.5, opacity: 0, transition: 'opacity 0.2s ease-in-out' }}>
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => startEdit(m)}
+                                    sx={{ 
+                                      color: 'text.secondary',
+                                      '&:hover': {
+                                        color: 'primary.main',
+                                        bgcolor: 'rgba(88, 101, 242, 0.1)',
+                                      }
+                                    }}
+                                    title="メッセージを編集"
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton 
+                                    size="small" 
+                                    onClick={() => deleteMessage(m.id)}
+                                    sx={{ 
+                                      color: 'text.secondary',
+                                      '&:hover': {
+                                        color: 'error.main',
+                                        bgcolor: 'rgba(244, 67, 54, 0.1)',
+                                      }
+                                    }}
+                                    title="メッセージを削除"
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Box>
+                              )}
+                            </Box>
+                          )}
                         </Box>
                       </>
                     )}

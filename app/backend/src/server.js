@@ -124,12 +124,108 @@ app.get('/api/channels/:room/messages', async (req, res) => {
             username: m.author?.name ?? 'unknown',
             picture: m.author?.avatarUrl || null,
             content: m.content,
-            ts: m.createdAt
+            ts: m.createdAt,
+            editedAt: m.editedAt
           }))
     res.json(serialized)
   } catch (e) {
     // DB未準備時も落ちないようにする
     res.status(200).json([])
+  }
+})
+
+// メッセージ編集API
+app.put('/api/messages/:messageId', async (req, res) => {
+  const { messageId } = req.params
+  const { content } = req.body
+  const currentUser = req.user
+
+  if (!currentUser.isAuthenticated || !currentUser.email) {
+    return res.status(401).json({ error: 'Google OAuth authentication required' })
+  }
+
+  try {
+    // メッセージの存在確認と所有者確認
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { author: true }
+    })
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' })
+    }
+
+    // 現在のユーザーがメッセージの所有者かチェック
+    const currentUserRecord = await prisma.user.findUnique({
+      where: { email: currentUser.email }
+    })
+
+    if (!currentUserRecord || message.userId !== currentUserRecord.id) {
+      return res.status(403).json({ error: 'You can only edit your own messages' })
+    }
+
+    // メッセージを更新
+    const updatedMessage = await prisma.message.update({
+      where: { id: messageId },
+      data: {
+        content,
+        editedAt: new Date()
+      },
+      include: { author: true }
+    })
+
+    res.json({
+      id: updatedMessage.id,
+      username: updatedMessage.author?.name ?? 'unknown',
+      picture: updatedMessage.author?.avatarUrl || null,
+      content: updatedMessage.content,
+      ts: updatedMessage.createdAt,
+      editedAt: updatedMessage.editedAt
+    })
+  } catch (error) {
+    console.error('Error updating message:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+})
+
+// メッセージ削除API
+app.delete('/api/messages/:messageId', async (req, res) => {
+  const { messageId } = req.params
+  const currentUser = req.user
+
+  if (!currentUser.isAuthenticated || !currentUser.email) {
+    return res.status(401).json({ error: 'Google OAuth authentication required' })
+  }
+
+  try {
+    // メッセージの存在確認と所有者確認
+    const message = await prisma.message.findUnique({
+      where: { id: messageId },
+      include: { author: true }
+    })
+
+    if (!message) {
+      return res.status(404).json({ error: 'Message not found' })
+    }
+
+    // 現在のユーザーがメッセージの所有者かチェック
+    const currentUserRecord = await prisma.user.findUnique({
+      where: { email: currentUser.email }
+    })
+
+    if (!currentUserRecord || message.userId !== currentUserRecord.id) {
+      return res.status(403).json({ error: 'You can only delete your own messages' })
+    }
+
+    // メッセージを削除
+    await prisma.message.delete({
+      where: { id: messageId }
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting message:', error)
+    res.status(500).json({ error: 'Internal server error' })
   }
 })
 
@@ -277,18 +373,124 @@ io.on('connection', socket => {
           create: { email: `${username}@local`, name: username, passwordHash: 'n/a', avatarUrl: picture },
           update: { name: username, avatarUrl: picture }
         })
-        await prisma.message.create({
+        const message = await prisma.message.create({
           data: {
             channelId: channel.id,
             userId: user.id,
             content
           }
         })
+        // メッセージIDを追加してクライアントに送信
+        payload.id = message.id
+        io.to(room).emit('message', payload)
       } catch (e) {
         // ログに出す程度（本実装ではloggerを使う）
         console.warn('persist failed:', e?.message)
       }
     })()
+  })
+
+  // メッセージ編集イベント
+  socket.on('edit_message', async ({ room, messageId, content }) => {
+    const username = socket.data.username || 'anonymous'
+    const picture = socket.data.picture || null
+    
+    // 認証チェック（簡易版）
+    if (!username || username === 'anonymous' || username === 'user') {
+      socket.emit('error', { message: 'Authentication required' })
+      return
+    }
+    
+    try {
+      // メッセージの存在確認と所有者確認
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        include: { author: true }
+      })
+
+      if (!message) {
+        socket.emit('error', { message: 'Message not found' })
+        return
+      }
+
+      // 現在のユーザーがメッセージの所有者かチェック
+      const currentUser = await prisma.user.findUnique({
+        where: { email: `${username}@local` }
+      })
+
+      if (!currentUser || message.userId !== currentUser.id) {
+        socket.emit('error', { message: 'You can only edit your own messages' })
+        return
+      }
+
+      // メッセージを更新
+      const updatedMessage = await prisma.message.update({
+        where: { id: messageId },
+        data: {
+          content,
+          editedAt: new Date()
+        },
+        include: { author: true }
+      })
+
+      // 全クライアントに編集を通知
+      io.to(room).emit('message_edited', {
+        id: updatedMessage.id,
+        username: updatedMessage.author?.name ?? 'unknown',
+        picture: updatedMessage.author?.avatarUrl || null,
+        content: updatedMessage.content,
+        ts: updatedMessage.createdAt,
+        editedAt: updatedMessage.editedAt
+      })
+    } catch (error) {
+      console.error('Error editing message:', error)
+      socket.emit('error', { message: 'Failed to edit message' })
+    }
+  })
+
+  // メッセージ削除イベント
+  socket.on('delete_message', async ({ room, messageId }) => {
+    const username = socket.data.username || 'anonymous'
+    
+    // 認証チェック（簡易版）
+    if (!username || username === 'anonymous' || username === 'user') {
+      socket.emit('error', { message: 'Authentication required' })
+      return
+    }
+    
+    try {
+      // メッセージの存在確認と所有者確認
+      const message = await prisma.message.findUnique({
+        where: { id: messageId },
+        include: { author: true }
+      })
+
+      if (!message) {
+        socket.emit('error', { message: 'Message not found' })
+        return
+      }
+
+      // 現在のユーザーがメッセージの所有者かチェック
+      const currentUser = await prisma.user.findUnique({
+        where: { email: `${username}@local` }
+      })
+
+      if (!currentUser || message.userId !== currentUser.id) {
+        socket.emit('error', { message: 'You can only delete your own messages' })
+        return
+      }
+
+      // メッセージを削除
+      await prisma.message.delete({
+        where: { id: messageId }
+      })
+
+      // 全クライアントに削除を通知
+      io.to(room).emit('message_deleted', { id: messageId })
+    } catch (error) {
+      console.error('Error deleting message:', error)
+      socket.emit('error', { message: 'Failed to delete message' })
+    }
   })
 
   socket.on('disconnect', () => {
