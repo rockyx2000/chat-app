@@ -86,6 +86,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
   const [authError, setAuthError] = React.useState(null)
   const [contextMenu, setContextMenu] = React.useState(null)
+  const contextMenuRef = React.useRef(null)
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
@@ -275,9 +276,39 @@ export default function App() {
 
   const handleContextMenu = (event, message) => {
     event.preventDefault()
+    const rect = event.currentTarget.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const menuHeight = 300 // メニューの推定高さ
+    
+    // 画面の下に近い場合は上に表示
+    let mouseY = event.clientY - 6
+    if (event.clientY + menuHeight > viewportHeight) {
+      mouseY = event.clientY - menuHeight - 6
+    }
+    
     setContextMenu({
       mouseX: event.clientX + 2,
-      mouseY: event.clientY - 6,
+      mouseY: mouseY,
+      message: message
+    })
+  }
+
+  const handleMenuButtonClick = (event, message) => {
+    event.preventDefault()
+    event.stopPropagation()
+    const rect = event.currentTarget.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const menuHeight = 300 // メニューの推定高さ
+    
+    // 画面の下に近い場合は上に表示
+    let mouseY = rect.bottom + 6
+    if (rect.bottom + menuHeight > viewportHeight) {
+      mouseY = rect.top - menuHeight - 6
+    }
+    
+    setContextMenu({
+      mouseX: rect.left,
+      mouseY: mouseY,
       message: message
     })
   }
@@ -353,6 +384,47 @@ export default function App() {
     if (contextMenu) {
       document.addEventListener('click', handleClickOutside)
       return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [contextMenu])
+
+  // メニューの位置を動的に調整
+  React.useEffect(() => {
+    if (contextMenu && contextMenuRef.current) {
+      const menu = contextMenuRef.current
+      const rect = menu.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const viewportHeight = window.innerHeight
+      
+      let newX = contextMenu.mouseX
+      let newY = contextMenu.mouseY
+      
+      // 右端にはみ出る場合
+      if (rect.right > viewportWidth) {
+        newX = viewportWidth - rect.width - 10
+      }
+      
+      // 下端にはみ出る場合
+      if (rect.bottom > viewportHeight) {
+        newY = viewportHeight - rect.height - 10
+      }
+      
+      // 上端にはみ出る場合
+      if (newY < 0) {
+        newY = 10
+      }
+      
+      // 左端にはみ出る場合
+      if (newX < 0) {
+        newX = 10
+      }
+      
+      if (newX !== contextMenu.mouseX || newY !== contextMenu.mouseY) {
+        setContextMenu(prev => ({
+          ...prev,
+          mouseX: newX,
+          mouseY: newY
+        }))
+      }
     }
   }, [contextMenu])
 
@@ -590,7 +662,8 @@ export default function App() {
             borderColor: 'divider',
             display: 'flex',
             alignItems: 'center',
-            gap: 1
+            gap: 1,
+            minHeight: 64
           }}>
             <HashIcon color="text.secondary" />
             <Typography variant="h6" color="text.primary">
@@ -787,7 +860,7 @@ export default function App() {
                               <Box className="message-actions" sx={{ display: 'flex', gap: 0.5, opacity: 0, transition: 'opacity 0.2s ease-in-out' }}>
                                 <IconButton 
                                   size="small" 
-                                  onClick={(e) => handleContextMenu(e, m)}
+                                  onClick={(e) => handleMenuButtonClick(e, m)}
                                   sx={{ 
                                     color: 'text.secondary',
                                     '&:hover': {
@@ -885,9 +958,10 @@ export default function App() {
             bgcolor: 'background.paper',
             display: 'flex',
             alignItems: 'center',
-            gap: 1
+            gap: 1,
+            minHeight: 64
           }}>
-            <Typography variant="subtitle2" color="text.primary" fontWeight="bold">
+            <Typography variant="h6" color="text.primary" fontWeight="bold">
               参加者 — {onlineUsers.length}
             </Typography>
           </Box>
@@ -947,6 +1021,7 @@ export default function App() {
       {/* コンテキストメニュー */}
       {contextMenu && (
         <Box
+          ref={contextMenuRef}
           sx={{
             position: 'fixed',
             top: contextMenu.mouseY,
@@ -958,6 +1033,7 @@ export default function App() {
             borderRadius: 1,
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
             minWidth: 200,
+            maxWidth: 250,
             py: 0.5
           }}
           onClick={closeContextMenu}
