@@ -111,9 +111,8 @@ app.get('/api/channels/:room/messages', async (req, res) => {
     })
 
     const messages = await prisma.message.findMany({
-      where: { channelId: channel.id },
+      where: { room: room },
       orderBy: { createdAt: 'desc' },
-      include: { author: true },
       take: 50
     })
         // author名、アバター画像、作成時刻を返す
@@ -121,8 +120,8 @@ app.get('/api/channels/:room/messages', async (req, res) => {
           .reverse()
           .map(m => ({
             id: m.id,
-            username: m.author?.name ?? 'unknown',
-            picture: m.author?.avatarUrl || null,
+            username: m.username,
+            picture: null,
             content: m.content,
             ts: m.createdAt,
             editedAt: m.editedAt
@@ -372,8 +371,8 @@ io.on('connection', socket => {
       })
       const message = await prisma.message.create({
         data: {
-          channelId: channel.id,
-          userId: user.id,
+          room: room,
+          username: username,
           content
         }
       })
