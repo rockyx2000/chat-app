@@ -33,9 +33,7 @@ import {
   ContentCopy as CopyIcon,
   PushPin as PinIcon,
   Warning as WarningIcon,
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon
+  Add as AddIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
