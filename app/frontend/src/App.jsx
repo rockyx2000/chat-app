@@ -287,7 +287,7 @@ export default function App() {
     }
     
     setContextMenu({
-      mouseX: event.clientX + 2,
+      mouseX: event.clientX - 10, // メッセージにより近く配置
       mouseY: mouseY,
       message: message
     })
@@ -307,7 +307,7 @@ export default function App() {
     }
     
     setContextMenu({
-      mouseX: rect.left,
+      mouseX: rect.left - 10, // メッセージにより近く配置
       mouseY: mouseY,
       message: message
     })
@@ -398,9 +398,9 @@ export default function App() {
       let newX = contextMenu.mouseX
       let newY = contextMenu.mouseY
       
-      // 右端にはみ出る場合
+      // 右端にはみ出る場合（メッセージの左側に表示）
       if (rect.right > viewportWidth) {
-        newX = viewportWidth - rect.width - 10
+        newX = contextMenu.mouseX - rect.width - 20 // メッセージの左側に配置
       }
       
       // 下端にはみ出る場合
