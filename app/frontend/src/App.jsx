@@ -279,16 +279,24 @@ export default function App() {
     
     const rect = event.currentTarget.getBoundingClientRect()
     const viewportHeight = window.innerHeight
-    const menuHeight = 300 // メニューの推定高さ
+    const menuHeight = 200 // メニューの推定高さ
     
-    // 画面の下に近い場合は上に表示
-    let mouseY = event.clientY - 6
-    if (event.clientY + menuHeight > viewportHeight) {
-      mouseY = event.clientY - menuHeight - 6
+    // Discord本家と同じ位置：メッセージの右端に密着、上端と同じ高さ
+    let mouseX = rect.right + 5 // メッセージの右端から5px離れた位置（密着）
+    let mouseY = rect.top // メッセージの上端と同じ高さ
+    
+    // 画面の右端にはみ出る場合は左側に表示
+    if (mouseX + 200 > window.innerWidth) {
+      mouseX = rect.left - 200 - 5 // メッセージの左側に配置
+    }
+    
+    // 画面の下にはみ出る場合は上に表示
+    if (mouseY + menuHeight > viewportHeight) {
+      mouseY = rect.bottom - menuHeight
     }
     
     setContextMenu({
-      mouseX: event.clientX - 20, // マウス位置により近く配置
+      mouseX: mouseX,
       mouseY: mouseY,
       message: message
     })
@@ -299,16 +307,24 @@ export default function App() {
     event.stopPropagation()
     const rect = event.currentTarget.getBoundingClientRect()
     const viewportHeight = window.innerHeight
-    const menuHeight = 300 // メニューの推定高さ
+    const menuHeight = 200 // メニューの推定高さ
     
-    // 画面の下に近い場合は上に表示
-    let mouseY = rect.bottom + 6
-    if (rect.bottom + menuHeight > viewportHeight) {
-      mouseY = rect.top - menuHeight - 6
+    // Discord本家と同じ位置：メッセージの右端に密着、上端と同じ高さ
+    let mouseX = rect.right + 5 // メッセージの右端から5px離れた位置（密着）
+    let mouseY = rect.top // メッセージの上端と同じ高さ
+    
+    // 画面の右端にはみ出る場合は左側に表示
+    if (mouseX + 200 > window.innerWidth) {
+      mouseX = rect.left - 200 - 5 // メッセージの左側に配置
+    }
+    
+    // 画面の下にはみ出る場合は上に表示
+    if (mouseY + menuHeight > viewportHeight) {
+      mouseY = rect.bottom - menuHeight
     }
     
     setContextMenu({
-      mouseX: rect.left - 80, // メッセージにより近く配置
+      mouseX: mouseX,
       mouseY: mouseY,
       message: message
     })
@@ -388,7 +404,7 @@ export default function App() {
     }
   }, [contextMenu])
 
-  // メニューの位置を動的に調整
+  // メニューの位置を動的に調整（簡素化）
   React.useEffect(() => {
     if (contextMenu && contextMenuRef.current) {
       const menu = contextMenuRef.current
@@ -399,9 +415,9 @@ export default function App() {
       let newX = contextMenu.mouseX
       let newY = contextMenu.mouseY
       
-      // 右端にはみ出る場合（メッセージの左側に表示）
+      // 右端にはみ出る場合
       if (rect.right > viewportWidth) {
-        newX = contextMenu.mouseX - rect.width - 20 // マウス位置の左側に配置
+        newX = viewportWidth - rect.width - 10
       }
       
       // 下端にはみ出る場合
