@@ -32,7 +32,10 @@ import {
   Reply as ReplyIcon,
   ContentCopy as CopyIcon,
   PushPin as PinIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -89,6 +92,10 @@ export default function App() {
   const [contextMenu, setContextMenu] = React.useState(null)
   const contextMenuRef = React.useRef(null)
   const [deleteModal, setDeleteModal] = React.useState(null)
+  const [channelContextMenu, setChannelContextMenu] = React.useState(null)
+  const [channelCreateModal, setChannelCreateModal] = React.useState(false)
+  const [channelEditModal, setChannelEditModal] = React.useState(null)
+  const [newChannelName, setNewChannelName] = React.useState('')
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
@@ -277,6 +284,55 @@ export default function App() {
 
   const cancelDelete = () => {
     setDeleteModal(null)
+  }
+
+  // チャンネル管理関数
+  const handleChannelContextMenu = (event, channel) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setChannelContextMenu({
+      mouseX: event.clientX - 20,
+      mouseY: event.clientY - 6,
+      channel: channel
+    })
+  }
+
+  const closeChannelContextMenu = () => {
+    setChannelContextMenu(null)
+  }
+
+  const createChannel = () => {
+    setChannelCreateModal(true)
+    closeChannelContextMenu()
+  }
+
+  const editChannel = (channel) => {
+    setChannelEditModal(channel)
+    closeChannelContextMenu()
+  }
+
+  const deleteChannel = (channel) => {
+    // チャンネル削除の実装
+    console.log('Delete channel:', channel)
+    closeChannelContextMenu()
+  }
+
+  const handleCreateChannel = () => {
+    if (newChannelName.trim()) {
+      // チャンネル作成の実装
+      console.log('Create channel:', newChannelName)
+      setNewChannelName('')
+      setChannelCreateModal(false)
+    }
+  }
+
+  const handleEditChannel = () => {
+    if (newChannelName.trim()) {
+      // チャンネル編集の実装
+      console.log('Edit channel:', channelEditModal, 'to', newChannelName)
+      setNewChannelName('')
+      setChannelEditModal(null)
+    }
   }
 
   const logout = () => {
@@ -582,26 +638,40 @@ export default function App() {
           
           {/* チャンネルリスト */}
           <Box sx={{ flex: 1, p: 1 }}>
-            <Typography 
-              variant="caption" 
-              color="text.secondary" 
-              sx={{ 
-                px: 2, 
-                py: 1, 
-                display: 'block',
-                textTransform: 'uppercase',
-                fontWeight: 'bold',
-                letterSpacing: 0.5
-              }}
-            >
-              TEXT CHANNELS
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, py: 1 }}>
+              <Typography 
+                variant="caption" 
+                color="text.secondary"
+                sx={{ 
+                  textTransform: 'uppercase',
+                  fontWeight: 'bold',
+                  letterSpacing: 0.5
+                }}
+              >
+                TEXT CHANNELS
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={createChannel}
+                sx={{
+                  color: 'text.secondary',
+                  '&:hover': {
+                    color: 'text.primary',
+                    bgcolor: 'rgba(255, 255, 255, 0.1)'
+                  }
+                }}
+                title="チャンネルを作成"
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </Box>
             <List dense>
               {channels.map(channel => (
                 <ListItem key={channel} disablePadding>
                   <ListItemButton
                     selected={currentChannel === channel}
                     onClick={() => switchChannel(channel)}
+                    onContextMenu={(e) => handleChannelContextMenu(e, channel)}
                     disabled={isConnecting}
                     sx={{
                       borderRadius: 1,
@@ -1273,6 +1343,229 @@ export default function App() {
               >
                 <Typography variant="body2" color="white">
                   削除
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      )}
+
+      {/* チャンネルコンテキストメニュー */}
+      {channelContextMenu && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: channelContextMenu.mouseY,
+            left: channelContextMenu.mouseX,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            minWidth: 180,
+            maxWidth: 200,
+            py: 0.5,
+            zIndex: 1000
+          }}
+          onClick={closeChannelContextMenu}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              px: 2, 
+              py: 1, 
+              cursor: 'pointer',
+              '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }
+            }}
+            onClick={() => editChannel(channelContextMenu.channel)}
+          >
+            <EditIcon sx={{ fontSize: 16, mr: 2, color: 'text.secondary' }} />
+            <Typography variant="body2" color="text.primary">チャンネルを編集</Typography>
+          </Box>
+          
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              px: 2, 
+              py: 1, 
+              cursor: 'pointer',
+              '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.1)' }
+            }}
+            onClick={() => deleteChannel(channelContextMenu.channel)}
+          >
+            <DeleteIcon sx={{ fontSize: 16, mr: 2, color: 'error.main' }} />
+            <Typography variant="body2" color="error.main">チャンネルを削除</Typography>
+          </Box>
+        </Box>
+      )}
+
+      {/* チャンネル作成モーダル */}
+      {channelCreateModal && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+          onClick={() => setChannelCreateModal(false)}
+        >
+          <Box
+            sx={{
+              bgcolor: 'background.paper',
+              borderRadius: 2,
+              p: 3,
+              maxWidth: 400,
+              width: '90%',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Typography variant="h6" color="text.primary" sx={{ fontWeight: 'bold', mb: 2 }}>
+              チャンネルを作成
+            </Typography>
+            
+            <TextField
+              fullWidth
+              label="チャンネル名"
+              value={newChannelName}
+              onChange={(e) => setNewChannelName(e.target.value)}
+              placeholder="例: general"
+              sx={{ mb: 3 }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleCreateChannel()
+                }
+              }}
+            />
+            
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <Box
+                sx={{
+                  px: 3,
+                  py: 1,
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.2)'
+                  }
+                }}
+                onClick={() => setChannelCreateModal(false)}
+              >
+                <Typography variant="body2" color="text.primary">
+                  キャンセル
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  px: 3,
+                  py: 1,
+                  bgcolor: 'primary.main',
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'primary.dark'
+                  }
+                }}
+                onClick={handleCreateChannel}
+              >
+                <Typography variant="body2" color="white">
+                  作成
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      )}
+
+      {/* チャンネル編集モーダル */}
+      {channelEditModal && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+          onClick={() => setChannelEditModal(null)}
+        >
+          <Box
+            sx={{
+              bgcolor: 'background.paper',
+              borderRadius: 2,
+              p: 3,
+              maxWidth: 400,
+              width: '90%',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Typography variant="h6" color="text.primary" sx={{ fontWeight: 'bold', mb: 2 }}>
+              チャンネルを編集
+            </Typography>
+            
+            <TextField
+              fullWidth
+              label="チャンネル名"
+              value={newChannelName}
+              onChange={(e) => setNewChannelName(e.target.value)}
+              placeholder={channelEditModal}
+              sx={{ mb: 3 }}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleEditChannel()
+                }
+              }}
+            />
+            
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <Box
+                sx={{
+                  px: 3,
+                  py: 1,
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.2)'
+                  }
+                }}
+                onClick={() => setChannelEditModal(null)}
+              >
+                <Typography variant="body2" color="text.primary">
+                  キャンセル
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  px: 3,
+                  py: 1,
+                  bgcolor: 'primary.main',
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'primary.dark'
+                  }
+                }}
+                onClick={handleEditChannel}
+              >
+                <Typography variant="body2" color="white">
+                  保存
                 </Typography>
               </Box>
             </Box>
