@@ -31,7 +31,8 @@ import {
   MoreVert as MoreVertIcon,
   Reply as ReplyIcon,
   ContentCopy as CopyIcon,
-  PushPin as PinIcon
+  PushPin as PinIcon,
+  Warning as WarningIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -87,6 +88,7 @@ export default function App() {
   const [authError, setAuthError] = React.useState(null)
   const [contextMenu, setContextMenu] = React.useState(null)
   const contextMenuRef = React.useRef(null)
+  const [deleteModal, setDeleteModal] = React.useState(null)
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
@@ -258,12 +260,23 @@ export default function App() {
 
   const deleteMessage = (messageId) => {
     if (!socketRef.current || !messageId) return
-    if (window.confirm('このメッセージを削除しますか？')) {
-      socketRef.current.emit('delete_message', { 
-        room: currentChannel, 
-        messageId 
-      })
+    const message = messages.find(m => m.id === messageId)
+    if (message) {
+      setDeleteModal(message)
     }
+  }
+
+  const confirmDelete = () => {
+    if (!socketRef.current || !deleteModal) return
+    socketRef.current.emit('delete_message', { 
+      room: currentChannel, 
+      messageId: deleteModal.id 
+    })
+    setDeleteModal(null)
+  }
+
+  const cancelDelete = () => {
+    setDeleteModal(null)
   }
 
   const logout = () => {
@@ -1141,6 +1154,126 @@ export default function App() {
               </Box>
             </>
           )}
+        </Box>
+      )}
+
+      {/* Discord風削除確認モーダル */}
+      {deleteModal && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            bgcolor: 'rgba(0, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999
+          }}
+          onClick={cancelDelete}
+        >
+          <Box
+            sx={{
+              bgcolor: 'background.paper',
+              borderRadius: 2,
+              p: 3,
+              maxWidth: 400,
+              width: '90%',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* ヘッダー */}
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <WarningIcon sx={{ color: 'error.main', mr: 1 }} />
+              <Typography variant="h6" color="text.primary" sx={{ fontWeight: 'bold' }}>
+                メッセージを削除
+              </Typography>
+            </Box>
+
+            {/* 確認メッセージ */}
+            <Typography variant="body1" color="text.primary" sx={{ mb: 3 }}>
+              メッセージを削除します。よろしいですか？
+            </Typography>
+
+            {/* 削除対象メッセージのプレビュー */}
+            <Box sx={{ 
+              bgcolor: 'rgba(255, 255, 255, 0.05)', 
+              borderRadius: 1, 
+              p: 2, 
+              mb: 3,
+              border: '1px solid',
+              borderColor: 'divider'
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
+                  {deleteModal.username?.charAt(0) || '?'}
+                </Avatar>
+                <Typography variant="body2" color="text.primary" sx={{ fontWeight: 'bold' }}>
+                  {deleteModal.username}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {new Date(deleteModal.timestamp).toLocaleTimeString('ja-JP', { 
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                  })}
+                </Typography>
+              </Box>
+              <Typography variant="body2" color="text.primary">
+                {deleteModal.content}
+              </Typography>
+            </Box>
+
+            {/* アドバイス */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold', mb: 1 }}>
+                アドバイス:
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                シフトを押しながらメッセージを削除をクリックすることで、確認なしに即メッセージを削除できます。
+              </Typography>
+            </Box>
+
+            {/* ボタン */}
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              <Box
+                sx={{
+                  px: 3,
+                  py: 1,
+                  bgcolor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'rgba(255, 255, 255, 0.2)'
+                  }
+                }}
+                onClick={cancelDelete}
+              >
+                <Typography variant="body2" color="text.primary">
+                  キャンセル
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  px: 3,
+                  py: 1,
+                  bgcolor: 'error.main',
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  '&:hover': {
+                    bgcolor: 'error.dark'
+                  }
+                }}
+                onClick={confirmDelete}
+              >
+                <Typography variant="body2" color="white">
+                  削除
+                </Typography>
+              </Box>
+            </Box>
+          </Box>
         </Box>
       )}
     </ThemeProvider>
