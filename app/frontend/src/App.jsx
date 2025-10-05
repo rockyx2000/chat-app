@@ -324,33 +324,6 @@ export default function App() {
     })
   }
 
-  const handleMessageClick = (event, message) => {
-    event.preventDefault()
-    event.stopPropagation()
-    const rect = event.currentTarget.getBoundingClientRect()
-    const viewportHeight = window.innerHeight
-    const menuHeight = 200 // メニューの推定高さ
-    
-    // 左クリック時は右上に表示
-    let mouseX = rect.right - 200 // メッセージの右上に配置
-    let mouseY = rect.top // メッセージの上端と同じ高さ
-    
-    // 画面の右端にはみ出る場合は左側に表示
-    if (mouseX < 0) {
-      mouseX = rect.left - 200 - 5 // メッセージの左側に配置
-    }
-    
-    // 画面の下にはみ出る場合は上に表示
-    if (mouseY + menuHeight > viewportHeight) {
-      mouseY = rect.bottom - menuHeight
-    }
-    
-    setContextMenu({
-      mouseX: mouseX,
-      mouseY: mouseY,
-      message: message
-    })
-  }
 
   const closeContextMenu = () => {
     setContextMenu(null)
@@ -755,13 +728,13 @@ export default function App() {
                       p: 1,
                       borderRadius: 1,
                       '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.02)',
                         '& .message-actions': {
                           opacity: 1
                         }
                       }
                     }}
                     onContextMenu={(e) => handleContextMenu(e, m)}
-                    onClick={(e) => handleMessageClick(e, m)}
                   >
                     {m.system ? (
                       <Box sx={{ 
@@ -878,7 +851,7 @@ export default function App() {
                               </Box>
                             </Box>
                           ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                               <Typography 
                                 variant="body1" 
                                 color="text.primary"
@@ -892,7 +865,7 @@ export default function App() {
                                 {m.content}
                               </Typography>
                               
-                              {/* メニューボタン（ホバー時に表示） */}
+                              {/* メニューボタン（ホバー時に表示、右端に固定） */}
                               <Box className="message-actions" sx={{ display: 'flex', gap: 0.5, opacity: 0, transition: 'opacity 0.2s ease-in-out' }}>
                                 <IconButton 
                                   size="small" 
