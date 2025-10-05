@@ -27,7 +27,11 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
   Security as SecurityIcon,
-  Login as LoginIcon
+  Login as LoginIcon,
+  MoreVert as MoreVertIcon,
+  Reply as ReplyIcon,
+  ContentCopy as CopyIcon,
+  PushPin as PinIcon
 } from '@mui/icons-material'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
@@ -81,6 +85,7 @@ export default function App() {
   const [editContent, setEditContent] = React.useState('')
   const [isAuthenticated, setIsAuthenticated] = React.useState(false)
   const [authError, setAuthError] = React.useState(null)
+  const [contextMenu, setContextMenu] = React.useState(null)
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
@@ -262,6 +267,30 @@ export default function App() {
     window.location.reload()
   }
 
+  const handleContextMenu = (event, message) => {
+    event.preventDefault()
+    setContextMenu({
+      mouseX: event.clientX + 2,
+      mouseY: event.clientY - 6,
+      message: message
+    })
+  }
+
+  const closeContextMenu = () => {
+    setContextMenu(null)
+  }
+
+  const copyMessage = (content) => {
+    navigator.clipboard.writeText(content)
+    closeContextMenu()
+  }
+
+  const replyToMessage = (message) => {
+    // 返信機能（将来実装）
+    console.log('Reply to:', message)
+    closeContextMenu()
+  }
+
   const getInitials = (name) => {
     if (!name) return '?'
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
@@ -306,6 +335,20 @@ export default function App() {
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // コンテキストメニュー外をクリックした時にメニューを閉じる
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (contextMenu) {
+        closeContextMenu()
+      }
+    }
+
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside)
+      return () => document.removeEventListener('click', handleClickOutside)
+    }
+  }, [contextMenu])
 
   // ローディング画面
   if (isLoading) {
@@ -603,6 +646,7 @@ export default function App() {
                         }
                       }
                     }}
+                    onContextMenu={(e) => handleContextMenu(e, m)}
                   >
                     {m.system ? (
                       <Box sx={{ 
@@ -733,39 +777,23 @@ export default function App() {
                                 {m.content}
                               </Typography>
                               
-                              {/* 自分のメッセージの場合のみ編集・削除ボタンを表示 */}
-                              {m.username === username && m.id && (
-                                <Box className="message-actions" sx={{ display: 'flex', gap: 0.5, opacity: 0, transition: 'opacity 0.2s ease-in-out' }}>
-                                  <IconButton 
-                                    size="small" 
-                                    onClick={() => startEdit(m)}
-                                    sx={{ 
-                                      color: 'text.secondary',
-                                      '&:hover': {
-                                        color: 'primary.main',
-                                        bgcolor: 'rgba(88, 101, 242, 0.1)',
-                                      }
-                                    }}
-                                    title="メッセージを編集"
-                                  >
-                                    <EditIcon fontSize="small" />
-                                  </IconButton>
-                                  <IconButton 
-                                    size="small" 
-                                    onClick={() => deleteMessage(m.id)}
-                                    sx={{ 
-                                      color: 'text.secondary',
-                                      '&:hover': {
-                                        color: 'error.main',
-                                        bgcolor: 'rgba(244, 67, 54, 0.1)',
-                                      }
-                                    }}
-                                    title="メッセージを削除"
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </Box>
-                              )}
+                              {/* メニューボタン（ホバー時に表示） */}
+                              <Box className="message-actions" sx={{ display: 'flex', gap: 0.5, opacity: 0, transition: 'opacity 0.2s ease-in-out' }}>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={(e) => handleContextMenu(e, m)}
+                                  sx={{ 
+                                    color: 'text.secondary',
+                                    '&:hover': {
+                                      color: 'text.primary',
+                                      bgcolor: 'rgba(255, 255, 255, 0.1)',
+                                    }
+                                  }}
+                                  title="メッセージオプション"
+                                >
+                                  <MoreVertIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
                             </Box>
                           )}
                         </Box>
@@ -909,6 +937,121 @@ export default function App() {
           </Box>
         </Paper>
       </Box>
+
+      {/* コンテキストメニュー */}
+      {contextMenu && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: contextMenu.mouseY,
+            left: contextMenu.mouseX,
+            zIndex: 1300,
+            bgcolor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            minWidth: 200,
+            py: 0.5
+          }}
+          onClick={closeContextMenu}
+        >
+          {/* リアクションセクション */}
+          <Box sx={{ display: 'flex', gap: 0.5, p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+            <IconButton size="small" sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }}>
+              👍
+            </IconButton>
+            <IconButton size="small" sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }}>
+              😢
+            </IconButton>
+            <IconButton size="small" sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }}>
+              👏
+            </IconButton>
+            <IconButton size="small" sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }}>
+              ❤️
+            </IconButton>
+          </Box>
+
+          {/* メインアクション */}
+          <Box sx={{ py: 0.5 }}>
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                px: 2, 
+                py: 1, 
+                cursor: 'pointer',
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }
+              }}
+              onClick={() => replyToMessage(contextMenu.message)}
+            >
+              <ReplyIcon sx={{ fontSize: 16, mr: 2, color: 'text.secondary' }} />
+              <Typography variant="body2" color="text.primary">返信</Typography>
+            </Box>
+            
+            {contextMenu.message.username === username && contextMenu.message.id && (
+              <>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    px: 2, 
+                    py: 1, 
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }
+                  }}
+                  onClick={() => {
+                    startEdit(contextMenu.message)
+                    closeContextMenu()
+                  }}
+                >
+                  <EditIcon sx={{ fontSize: 16, mr: 2, color: 'text.secondary' }} />
+                  <Typography variant="body2" color="text.primary">メッセージを編集</Typography>
+                </Box>
+              </>
+            )}
+            
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                px: 2, 
+                py: 1, 
+                cursor: 'pointer',
+                '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.05)' }
+              }}
+              onClick={() => copyMessage(contextMenu.message.content)}
+            >
+              <CopyIcon sx={{ fontSize: 16, mr: 2, color: 'text.secondary' }} />
+              <Typography variant="body2" color="text.primary">テキストをコピー</Typography>
+            </Box>
+          </Box>
+
+          {/* 削除アクション（自分のメッセージのみ） */}
+          {contextMenu.message.username === username && contextMenu.message.id && (
+            <>
+              <Divider />
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  px: 2, 
+                  py: 1, 
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.1)' }
+                }}
+                onClick={() => {
+                  deleteMessage(contextMenu.message.id)
+                  closeContextMenu()
+                }}
+              >
+                <DeleteIcon sx={{ fontSize: 16, mr: 2, color: 'error.main' }} />
+                <Typography variant="body2" color="error.main">メッセージを削除</Typography>
+              </Box>
+            </>
+          )}
+        </Box>
+      )}
     </ThemeProvider>
   )
 }
