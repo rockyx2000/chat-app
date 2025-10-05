@@ -116,6 +116,9 @@ export default function App() {
           setUserEmail(userData.email)
           setIsAuthenticated(true)
           console.log('Logged in as:', userData.email)
+          
+          // 認証成功後、チャンネルに接続
+          await connectToChannel(currentChannel)
         } else {
           setIsAuthenticated(false)
           setAuthError('Google OAuth認証が必要です。')
@@ -224,15 +227,12 @@ export default function App() {
   }
 
   React.useEffect(() => {
-    if (username && username !== 'user') {
-      connectToChannel(currentChannel)
-    }
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect()
       }
     }
-  }, [username])
+  }, [])
 
 
   const send = (e) => {
