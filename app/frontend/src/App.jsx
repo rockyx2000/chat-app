@@ -607,18 +607,29 @@ export default function App() {
             flexDirection: 'column'
           }}
         >
+          {/* 参加者一覧ヘッダー - チャンネルヘッダーと同じ高さに配置 */}
           <Box sx={{ 
             p: 2, 
             borderBottom: '1px solid', 
             borderColor: 'divider',
-            bgcolor: 'background.paper'
+            bgcolor: 'background.paper',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1
           }}>
             <Typography variant="subtitle2" color="text.primary" fontWeight="bold">
               参加者 — {onlineUsers.length}
             </Typography>
           </Box>
           
-          <Box sx={{ flex: 1, p: 1, overflow: 'auto' }}>
+          {/* 参加者リスト - メッセージエリアと同じ高さに配置 */}
+          <Box sx={{ 
+            flex: 1, 
+            p: 1, 
+            overflow: 'auto',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
             <List dense>
               {onlineUsers.map((user, index) => (
                 <ListItem key={index} disablePadding>
