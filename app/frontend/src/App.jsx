@@ -276,6 +276,7 @@ export default function App() {
 
   const handleContextMenu = (event, message) => {
     event.preventDefault()
+    
     const rect = event.currentTarget.getBoundingClientRect()
     const viewportHeight = window.innerHeight
     const menuHeight = 300 // メニューの推定高さ
@@ -287,7 +288,7 @@ export default function App() {
     }
     
     setContextMenu({
-      mouseX: event.clientX - 80, // メッセージにより近く配置
+      mouseX: event.clientX - 20, // マウス位置により近く配置
       mouseY: mouseY,
       message: message
     })
@@ -400,7 +401,7 @@ export default function App() {
       
       // 右端にはみ出る場合（メッセージの左側に表示）
       if (rect.right > viewportWidth) {
-        newX = contextMenu.mouseX - rect.width - 100 // メッセージの左側に配置
+        newX = contextMenu.mouseX - rect.width - 20 // マウス位置の左側に配置
       }
       
       // 下端にはみ出る場合
