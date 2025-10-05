@@ -12,6 +12,13 @@ export default defineConfig({
         ws: true
       }
     }
+  },
+  build: {
+    target: 'esnext',
+    minify: 'esbuild'
+  },
+  esbuild: {
+    target: 'esnext'
   }
 })
 

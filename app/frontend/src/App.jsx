@@ -287,7 +287,7 @@ export default function App() {
     }
     
     setContextMenu({
-      mouseX: event.clientX - 10, // メッセージにより近く配置
+      mouseX: event.clientX - 30, // メッセージにより近く配置
       mouseY: mouseY,
       message: message
     })
@@ -307,7 +307,7 @@ export default function App() {
     }
     
     setContextMenu({
-      mouseX: rect.left - 10, // メッセージにより近く配置
+      mouseX: rect.left - 30, // メッセージにより近く配置
       mouseY: mouseY,
       message: message
     })
@@ -400,7 +400,7 @@ export default function App() {
       
       // 右端にはみ出る場合（メッセージの左側に表示）
       if (rect.right > viewportWidth) {
-        newX = contextMenu.mouseX - rect.width - 20 // メッセージの左側に配置
+        newX = contextMenu.mouseX - rect.width - 40 // メッセージの左側に配置
       }
       
       // 下端にはみ出る場合
@@ -1032,8 +1032,8 @@ export default function App() {
             borderColor: 'divider',
             borderRadius: 1,
             boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            minWidth: 200,
-            maxWidth: 250,
+            minWidth: 180,
+            maxWidth: 200,
             py: 0.5
           }}
           onClick={closeContextMenu}
