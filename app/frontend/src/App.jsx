@@ -277,11 +277,33 @@ export default function App() {
   const handleContextMenu = (event, message) => {
     event.preventDefault()
     
+    const viewportHeight = window.innerHeight
+    const menuHeight = 200 // メニューの推定高さ
+    
+    // 右クリック時はマウス位置に表示（どこでもいい位置）
+    let mouseX = event.clientX - 20 // マウス位置から少し左に
+    let mouseY = event.clientY - 6 // マウス位置から少し上に
+    
+    // 画面の下に近い場合は上に表示
+    if (event.clientY + menuHeight > viewportHeight) {
+      mouseY = event.clientY - menuHeight - 6
+    }
+    
+    setContextMenu({
+      mouseX: mouseX,
+      mouseY: mouseY,
+      message: message
+    })
+  }
+
+  const handleMenuButtonClick = (event, message) => {
+    event.preventDefault()
+    event.stopPropagation()
     const rect = event.currentTarget.getBoundingClientRect()
     const viewportHeight = window.innerHeight
     const menuHeight = 200 // メニューの推定高さ
     
-    // Discord本家と同じ位置：メッセージの右端に密着、上端と同じ高さ
+    // 本家Discordと同じ位置：メッセージの右端に密着、上端と同じ高さ
     let mouseX = rect.right + 5 // メッセージの右端から5px離れた位置（密着）
     let mouseY = rect.top // メッセージの上端と同じ高さ
     
@@ -302,19 +324,19 @@ export default function App() {
     })
   }
 
-  const handleMenuButtonClick = (event, message) => {
+  const handleMessageClick = (event, message) => {
     event.preventDefault()
     event.stopPropagation()
     const rect = event.currentTarget.getBoundingClientRect()
     const viewportHeight = window.innerHeight
     const menuHeight = 200 // メニューの推定高さ
     
-    // Discord本家と同じ位置：メッセージの右端に密着、上端と同じ高さ
-    let mouseX = rect.right + 5 // メッセージの右端から5px離れた位置（密着）
+    // 左クリック時は右上に表示
+    let mouseX = rect.right - 200 // メッセージの右上に配置
     let mouseY = rect.top // メッセージの上端と同じ高さ
     
     // 画面の右端にはみ出る場合は左側に表示
-    if (mouseX + 200 > window.innerWidth) {
+    if (mouseX < 0) {
       mouseX = rect.left - 200 - 5 // メッセージの左側に配置
     }
     
@@ -732,17 +754,14 @@ export default function App() {
                       gap: 2,
                       p: 1,
                       borderRadius: 1,
-                      transition: 'all 0.2s ease-in-out',
                       '&:hover': {
-                        bgcolor: 'rgba(255, 255, 255, 0.05)',
-                        transform: 'translateX(4px)',
-                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                         '& .message-actions': {
                           opacity: 1
                         }
                       }
                     }}
                     onContextMenu={(e) => handleContextMenu(e, m)}
+                    onClick={(e) => handleMessageClick(e, m)}
                   >
                     {m.system ? (
                       <Box sx={{ 
