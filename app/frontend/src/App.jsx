@@ -154,10 +154,16 @@ export default function App() {
     console.log(`Switching to channel: ${channelName}`)
     setIsConnecting(true)
     
+    // 切り替えたチャンネルの未読をクリア
+    setUnreadChannels(prev => {
+      const next = { ...prev }
+      delete next[channelName]
+      return next
+    })
+    
     // 既存のSocket.IO接続がある場合は、roomを切り替えるだけ（切断しない）
     if (socketRef.current && socketRef.current.connected) {
       console.log('Switching room without disconnecting socket')
-      // 現在のroomから離れる（必要に応じて）
       // 新しいroomに参加
       const joinData = { room: channelName, username: username, picture: userPicture }
       socketRef.current.emit('join', joinData)
@@ -172,15 +178,15 @@ export default function App() {
     }
     
     setCurrentChannel(channelName)
-    setMessages([])
     setIsLoadingMessages(true)
-    
-    // 切り替えたチャンネルの未読をクリア
-    setUnreadChannels(prev => {
-      const next = { ...prev }
-      delete next[channelName]
-      return next
-    })
+    // メッセージをクリアする前に、Socket.IO接続が確立されていることを確認
+    // 接続がない場合は先に接続してからメッセージをクリア
+    if (!socketRef.current || !socketRef.current.connected) {
+      console.log(`Connecting to channel before loading messages: ${channelName}`)
+      await connectToChannel(channelName, username, userPicture)
+    }
+    // 接続確立後、メッセージをクリア（これによりリアルタイムイベントが適切に処理される）
+    setMessages([])
     
     // メッセージ履歴を読み込む
     try {
@@ -278,12 +284,6 @@ export default function App() {
     } catch (error) {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
-    }
-    
-    // Socket.IO接続がない場合は新しく接続
-    if (!socketRef.current || !socketRef.current.connected) {
-      console.log(`Connecting to channel: ${channelName}`)
-      await connectToChannel(channelName, username, userPicture)
     }
     
     setIsConnecting(false)
@@ -418,22 +418,32 @@ export default function App() {
     })
     socket.on('message', msg => {
       // messageイベントはio.to(room).emitで送信されるので、このsocketが参加しているroomのメッセージ
-      // つまり現在のチャンネルのメッセージとして表示に追加
+      // 現在のチャンネルと一致することを確認してから追加
       console.log('[message event] Received message event:', { id: msg.id, room: msg.room, username: msg.username, content: msg.content?.substring(0, 20) })
-      setMessages(m => {
-        // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
-        const exists = m.find(existing => existing.id === msg.id)
-        if (exists) {
-          console.log('[message event] Message already exists, skipping:', msg.id)
-          return m
+      
+      // 現在のチャンネルを確認（状態更新関数内で最新値を取得）
+      setCurrentChannel(current => {
+        // メッセージのroomが現在のチャンネルと一致する場合のみ追加
+        if (msg.room === current) {
+          setMessages(m => {
+            // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
+            const exists = m.find(existing => existing.id === msg.id)
+            if (exists) {
+              console.log('[message event] Message already exists, skipping:', msg.id)
+              return m
+            }
+            console.log('[message event] Adding new message to list. Current count:', m.length)
+            return [...m, { 
+              ...msg, 
+              createdAt: new Date(msg.ts),
+              editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+              mentions: msg.mentions || [] // メンション情報を含める
+            }]
+          })
+        } else {
+          console.log('[message event] Message room does not match current channel, ignoring:', { messageRoom: msg.room, currentChannel: current })
         }
-        console.log('[message event] Adding new message to list. Current count:', m.length)
-        return [...m, { 
-          ...msg, 
-          createdAt: new Date(msg.ts),
-          editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
-          mentions: msg.mentions || [] // メンション情報を含める
-        }]
+        return current // currentChannelは変更しない
       })
     })
     
