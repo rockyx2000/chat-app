@@ -213,25 +213,27 @@ export default function App() {
       console.log('Socket already connected, just joining new room')
       const joinData = { room: channelName, username: userName, picture: userPic }
       socketRef.current.emit('join', joinData)
+      // 履歴は既にswitchChannelでロード済みのため、ここではロードしない
       return
     }
 
-    // 履歴をロード（ここではロードしない - switchChannelでロード済み）
-    // try {
-    //   const historyRes = await fetch(`/api/channels/${channelName}/messages`)
-    //   const history = await historyRes.json()
-    //   setMessages(history.map(msg => ({
-    //     id: msg.id,
-    //     username: msg.username,
-    //     content: msg.content,
-    //     picture: msg.picture,
-    //     createdAt: new Date(msg.ts),
-    //     editedAt: msg.editedAt ? new Date(msg.editedAt) : null
-    //   })))
-    //   console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
-    // } catch (error) {
-    //   console.error('Error loading message history:', error)
-    // }
+    // 初回接続時は履歴をロード
+    try {
+      const historyRes = await fetch(`/api/channels/${channelName}/messages`)
+      const history = await historyRes.json()
+      setMessages(history.map(msg => ({
+        id: msg.id,
+        username: msg.username,
+        content: msg.content,
+        picture: msg.picture,
+        createdAt: new Date(msg.ts),
+        editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+        mentions: msg.mentions || []
+      })))
+      console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
+    } catch (error) {
+      console.error('Error loading message history:', error)
+    }
 
     const socket = io({ path: '/socket.io', query: { username: userName } })
     console.log('Socket.IO client connecting with username:', userName)
