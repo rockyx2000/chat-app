@@ -199,41 +199,82 @@ export default function App() {
       setMessages(mappedHistory)
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
       
-      // DOMに反映されるのを待ってから、スケルトン表示のまま最下部にスクロール
-      requestAnimationFrame(() => {
+      // DOMに反映され、レイアウトが完了するまで待つ
+      // メッセージ要素が実際にDOMに存在することを確認
+      let frameCount = 0
+      let lastScrollHeight = 0
+      let stableCount = 0
+      
+      const waitForRender = () => {
         requestAnimationFrame(() => {
-          if (messagesContainerRef.current) {
-            // スケルトン表示のまま最下部に即座にスクロール（アニメーションなし）
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          const container = messagesContainerRef.current
+          if (container) {
+            // メッセージ要素が存在するか確認（messagesEndRefがあることを確認）
+            const messagesExist = mappedHistory.length === 0 || container.querySelector('[data-message-container]') || container.scrollHeight > container.clientHeight
             
-            // スクロール位置を確認して、最下部に到達したことを確認してからスケルトンを非表示
-            const checkScrollComplete = () => {
-              const container = messagesContainerRef.current
-              if (container) {
-                const isAtBottom = Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 10
-                if (isAtBottom) {
-                  // 最下部に到達したら、少し待機してからスケルトンを非表示
-                  setTimeout(() => {
+            const currentScrollHeight = container.scrollHeight
+            
+            // スクロール高さが安定し、メッセージが存在することを確認
+            if (currentScrollHeight === lastScrollHeight && messagesExist) {
+              stableCount++
+              if (stableCount >= 3) {
+                // レイアウトが安定し、メッセージが存在することを確認したら、最下部にスクロール
+                const targetScrollTop = container.scrollHeight - container.clientHeight
+                container.scrollTop = targetScrollTop
+                
+                // スクロールが完了したことを確認
+                const checkScrollComplete = () => {
+                  const checkContainer = messagesContainerRef.current
+                  if (checkContainer) {
+                    const distanceToBottom = checkContainer.scrollHeight - checkContainer.scrollTop - checkContainer.clientHeight
+                    const isAtBottom = distanceToBottom < 5
+                    if (isAtBottom) {
+                      // 最下部に到達したことを確認したら、少し待ってからスケルトンを非表示
+                      setTimeout(() => {
+                        setIsLoadingMessages(false)
+                      }, 150)
+                    } else {
+                      // まだ最下部に到達していない場合は再スクロールとチェック
+                      checkContainer.scrollTop = checkContainer.scrollHeight - checkContainer.clientHeight
+                      requestAnimationFrame(checkScrollComplete)
+                    }
+                  } else {
                     setIsLoadingMessages(false)
-                  }, 50)
-                } else {
-                  // まだ最下部に到達していない場合は再チェック
-                  requestAnimationFrame(checkScrollComplete)
+                  }
                 }
-              } else {
-                setIsLoadingMessages(false)
+                
+                // スクロール完了チェックを開始（少し待ってから）
+                setTimeout(() => {
+                  checkScrollComplete()
+                }, 50)
+                return
               }
+            } else {
+              lastScrollHeight = currentScrollHeight
+              stableCount = 0
             }
             
-            // 最初のチェック
-            setTimeout(() => {
-              checkScrollComplete()
-            }, 10)
+            frameCount++
+            // 最大100フレーム（約1.6秒）まで待つ
+            if (frameCount < 100) {
+              waitForRender()
+            } else {
+              // タイムアウトした場合は強制的に最下部にスクロールしてスケルトンを解除
+              container.scrollTop = container.scrollHeight - container.clientHeight
+              setTimeout(() => {
+                setIsLoadingMessages(false)
+              }, 150)
+            }
           } else {
             setIsLoadingMessages(false)
           }
         })
-      })
+      }
+      
+      // 最初のフレーム待機を開始（少し長めに待つ）
+      setTimeout(() => {
+        waitForRender()
+      }, 50)
     } catch (error) {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
@@ -277,41 +318,82 @@ export default function App() {
       setMessages(mappedHistory)
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
       
-      // DOMに反映されるのを待ってから、スケルトン表示のまま最下部にスクロール
-      requestAnimationFrame(() => {
+      // DOMに反映され、レイアウトが完了するまで待つ
+      // メッセージ要素が実際にDOMに存在することを確認
+      let frameCount = 0
+      let lastScrollHeight = 0
+      let stableCount = 0
+      
+      const waitForRender = () => {
         requestAnimationFrame(() => {
-          if (messagesContainerRef.current) {
-            // スケルトン表示のまま最下部に即座にスクロール（アニメーションなし）
-            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          const container = messagesContainerRef.current
+          if (container) {
+            // メッセージ要素が存在するか確認（messagesEndRefがあることを確認）
+            const messagesExist = mappedHistory.length === 0 || container.querySelector('[data-message-container]') || container.scrollHeight > container.clientHeight
             
-            // スクロール位置を確認して、最下部に到達したことを確認してからスケルトンを非表示
-            const checkScrollComplete = () => {
-              const container = messagesContainerRef.current
-              if (container) {
-                const isAtBottom = Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 10
-                if (isAtBottom) {
-                  // 最下部に到達したら、少し待機してからスケルトンを非表示
-                  setTimeout(() => {
+            const currentScrollHeight = container.scrollHeight
+            
+            // スクロール高さが安定し、メッセージが存在することを確認
+            if (currentScrollHeight === lastScrollHeight && messagesExist) {
+              stableCount++
+              if (stableCount >= 3) {
+                // レイアウトが安定し、メッセージが存在することを確認したら、最下部にスクロール
+                const targetScrollTop = container.scrollHeight - container.clientHeight
+                container.scrollTop = targetScrollTop
+                
+                // スクロールが完了したことを確認
+                const checkScrollComplete = () => {
+                  const checkContainer = messagesContainerRef.current
+                  if (checkContainer) {
+                    const distanceToBottom = checkContainer.scrollHeight - checkContainer.scrollTop - checkContainer.clientHeight
+                    const isAtBottom = distanceToBottom < 5
+                    if (isAtBottom) {
+                      // 最下部に到達したことを確認したら、少し待ってからスケルトンを非表示
+                      setTimeout(() => {
+                        setIsLoadingMessages(false)
+                      }, 150)
+                    } else {
+                      // まだ最下部に到達していない場合は再スクロールとチェック
+                      checkContainer.scrollTop = checkContainer.scrollHeight - checkContainer.clientHeight
+                      requestAnimationFrame(checkScrollComplete)
+                    }
+                  } else {
                     setIsLoadingMessages(false)
-                  }, 50)
-                } else {
-                  // まだ最下部に到達していない場合は再チェック
-                  requestAnimationFrame(checkScrollComplete)
+                  }
                 }
-              } else {
-                setIsLoadingMessages(false)
+                
+                // スクロール完了チェックを開始（少し待ってから）
+                setTimeout(() => {
+                  checkScrollComplete()
+                }, 50)
+                return
               }
+            } else {
+              lastScrollHeight = currentScrollHeight
+              stableCount = 0
             }
             
-            // 最初のチェック
-            setTimeout(() => {
-              checkScrollComplete()
-            }, 10)
+            frameCount++
+            // 最大100フレーム（約1.6秒）まで待つ
+            if (frameCount < 100) {
+              waitForRender()
+            } else {
+              // タイムアウトした場合は強制的に最下部にスクロールしてスケルトンを解除
+              container.scrollTop = container.scrollHeight - container.clientHeight
+              setTimeout(() => {
+                setIsLoadingMessages(false)
+              }, 150)
+            }
           } else {
             setIsLoadingMessages(false)
           }
         })
-      })
+      }
+      
+      // 最初のフレーム待機を開始（少し長めに待つ）
+      setTimeout(() => {
+        waitForRender()
+      }, 50)
     } catch (error) {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
@@ -1360,8 +1442,8 @@ export default function App() {
               position: 'relative'
             }}
           >
-            {isLoadingMessages ? (
-              // スケルトンローディング（メッセージ読み込み中は常に表示、画面いっぱいに表示）
+            {/* スケルトンローディング（メッセージ読み込み中は常に表示、画面いっぱいに表示） */}
+            {isLoadingMessages && (
               <Box sx={{ 
                 position: 'absolute',
                 top: 0,
@@ -1373,7 +1455,9 @@ export default function App() {
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'flex-end',
-                minHeight: '100%'
+                minHeight: '100%',
+                bgcolor: 'background.default',
+                zIndex: 1
               }}>
                 {[...Array(50)].map((_, index) => (
                   <Box key={index} sx={{ mb: 2, display: 'flex', gap: 2 }}>
@@ -1389,7 +1473,18 @@ export default function App() {
                   </Box>
                 ))}
               </Box>
-            ) : messages.length === 0 && !isConnecting ? (
+            )}
+            
+            {/* メッセージは常にDOMに存在させるが、ローディング中は透明にする */}
+            <Box 
+              data-message-container
+              sx={{ 
+                opacity: isLoadingMessages ? 0 : 1,
+                transition: 'opacity 0.15s ease-in-out',
+                pointerEvents: isLoadingMessages ? 'none' : 'auto'
+              }}
+            >
+              {messages.length === 0 && !isConnecting ? (
               <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
@@ -1584,6 +1679,7 @@ export default function App() {
                 <div ref={messagesEndRef} />
               </Box>
             )}
+            </Box>
           </Box>
 
           {/* 入力エリア */}
