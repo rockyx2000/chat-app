@@ -186,7 +186,7 @@ export default function App() {
     try {
       const historyRes = await fetch(`/api/channels/${channelName}/messages`)
       const history = await historyRes.json()
-      setMessages(history.map(msg => ({
+      const mappedHistory = history.map(msg => ({
         id: msg.id,
         username: msg.username,
         content: msg.content,
@@ -194,16 +194,24 @@ export default function App() {
         createdAt: new Date(msg.ts),
         editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
         mentions: msg.mentions || []
-      })))
+      }))
+      setMessages(mappedHistory)
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
       
-      // メッセージ読み込み完了後、即座に最下部にスクロール（アニメーションなし）
+      // メッセージがDOMに反映された後、最下部にスクロールしてからスケルトンを非表示
       setTimeout(() => {
         if (messagesContainerRef.current) {
+          // 即座に最下部にスクロール（アニメーションなし）
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          
+          // スクロール完了後に少し待機してからスケルトンを非表示（スクロールが見えないように）
+          setTimeout(() => {
+            setIsLoadingMessages(false)
+          }, 100)
+        } else {
+          setIsLoadingMessages(false)
         }
-        setIsLoadingMessages(false)
-      }, 0)
+      }, 10)
     } catch (error) {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
@@ -234,7 +242,7 @@ export default function App() {
     try {
       const historyRes = await fetch(`/api/channels/${channelName}/messages`)
       const history = await historyRes.json()
-      setMessages(history.map(msg => ({
+      const mappedHistory = history.map(msg => ({
         id: msg.id,
         username: msg.username,
         content: msg.content,
@@ -242,16 +250,24 @@ export default function App() {
         createdAt: new Date(msg.ts),
         editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
         mentions: msg.mentions || []
-      })))
+      }))
+      setMessages(mappedHistory)
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
       
-      // メッセージ読み込み完了後、即座に最下部にスクロール（アニメーションなし）
+      // メッセージがDOMに反映された後、最下部にスクロールしてからスケルトンを非表示
       setTimeout(() => {
         if (messagesContainerRef.current) {
+          // 即座に最下部にスクロール（アニメーションなし）
           messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          
+          // スクロール完了後に少し待機してからスケルトンを非表示（スクロールが見えないように）
+          setTimeout(() => {
+            setIsLoadingMessages(false)
+          }, 100)
+        } else {
+          setIsLoadingMessages(false)
         }
-        setIsLoadingMessages(false)
-      }, 0)
+      }, 10)
     } catch (error) {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
@@ -811,8 +827,13 @@ export default function App() {
   const messagesEndRef = React.useRef(null)
   
   React.useEffect(() => {
-    // メッセージ読み込み中でない場合のみスクロール（新規メッセージ受信時など）
-    if (!isLoadingMessages && messagesEndRef.current) {
+    // メッセージ読み込み中はスクロール処理をスキップ（スケルトン表示中は別途処理）
+    if (isLoadingMessages) {
+      return
+    }
+    
+    // メッセージ読み込み完了後、または新規メッセージ受信時にスクロール
+    if (messagesEndRef.current && messages.length > 0) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
     }
   }, [messages, isLoadingMessages])
@@ -1295,9 +1316,9 @@ export default function App() {
             }}
           >
             {isLoadingMessages ? (
-              // スケルトンローディング
-              <Box>
-                {[...Array(5)].map((_, index) => (
+              // スケルトンローディング（メッセージ読み込み中は常に表示、画面いっぱいに表示）
+              <Box sx={{ minHeight: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pb: 2 }}>
+                {[...Array(30)].map((_, index) => (
                   <Box key={index} sx={{ mb: 2, display: 'flex', gap: 2 }}>
                     <Skeleton variant="circular" width={40} height={40} />
                     <Box sx={{ flex: 1 }}>
