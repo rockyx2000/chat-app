@@ -189,7 +189,10 @@ export default function App() {
     
     socket.on('connect', () => {
       console.log('Socket.IO client connected successfully, joining room:', channelName)
-      socket.emit('join', { room: channelName, username: userName, picture: userPic })
+      const joinData = { room: channelName, username: userName, picture: userPic }
+      console.log('Emitting join event with data:', joinData)
+      socket.emit('join', joinData)
+      console.log('Join event emitted')
     })
     
     socket.on('connect_error', (error) => {
@@ -276,7 +279,7 @@ export default function App() {
       console.log('Cannot send message:', { socketExists: !!socketRef.current, hasContent: !!content.trim() })
       return
     }
-    console.log('Sending message:', { room: currentChannel, content: content.trim() })
+    console.log('Sending message:', { room: currentChannel, content: content.trim(), socketConnected: socketRef.current?.connected, socketId: socketRef.current?.id })
     socketRef.current.emit('message', { room: currentChannel, content: content.trim() })
     setContent('')
   }
