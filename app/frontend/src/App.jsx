@@ -453,43 +453,48 @@ export default function App() {
 
   // キーボードナビゲーション
   const handleInputKeyDown = (e) => {
-    if (!mentionSuggestions.show) {
-      // サジェストが表示されていない場合は通常の処理
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault()
-        send(e)
+    // Ctrl+Enter（またはCmd+Enter on Mac）でメッセージ送信
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault()
+      send(e)
+      return
+    }
+
+    // メンションサジェストが表示されている場合の処理
+    if (mentionSuggestions.show) {
+      const suggestedUsers = getSuggestedUsers()
+      
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault()
+          setSelectedSuggestionIndex(prev => 
+            prev < suggestedUsers.length - 1 ? prev + 1 : 0
+          )
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          setSelectedSuggestionIndex(prev => 
+            prev > 0 ? prev - 1 : suggestedUsers.length - 1
+          )
+          break
+        case 'Enter':
+        case 'Tab':
+          e.preventDefault()
+          if (suggestedUsers.length > 0) {
+            insertMention(suggestedUsers[selectedSuggestionIndex])
+          }
+          break
+        case 'Escape':
+          e.preventDefault()
+          setMentionSuggestions(prev => ({ ...prev, show: false }))
+          setSelectedSuggestionIndex(0)
+          break
       }
       return
     }
 
-    const suggestedUsers = getSuggestedUsers()
-    
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setSelectedSuggestionIndex(prev => 
-          prev < suggestedUsers.length - 1 ? prev + 1 : 0
-        )
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setSelectedSuggestionIndex(prev => 
-          prev > 0 ? prev - 1 : suggestedUsers.length - 1
-        )
-        break
-      case 'Enter':
-      case 'Tab':
-        e.preventDefault()
-        if (suggestedUsers.length > 0) {
-          insertMention(suggestedUsers[selectedSuggestionIndex])
-        }
-        break
-      case 'Escape':
-        e.preventDefault()
-        setMentionSuggestions(prev => ({ ...prev, show: false }))
-        setSelectedSuggestionIndex(0)
-        break
-    }
+    // 通常のEnterキーは改行として扱う（デフォルト動作を許可）
+    // Ctrl+Enterは上で処理済み
   }
 
   // メッセージ本文をメンション付きでレンダリングする関数
@@ -1356,7 +1361,14 @@ export default function App() {
 
           {/* 入力エリア */}
           <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Box component="form" onSubmit={send} sx={{ display: 'flex', gap: 1 }}>
+            <Box 
+              component="form" 
+              onSubmit={(e) => {
+                // フォームのsubmitは無効化（Ctrl+EnterはhandleInputKeyDownで処理）
+                e.preventDefault()
+              }}
+              sx={{ display: 'flex', gap: 1 }}
+            >
               <Box sx={{ position: 'relative', width: '100%' }}>
                 <TextField
                   inputRef={inputRef}
@@ -1370,10 +1382,12 @@ export default function App() {
                       setMentionSuggestions(prev => ({ ...prev, show: false }))
                     }, 200)
                   }}
-                  placeholder={`#${currentChannel} にメッセージを送信`}
+                  placeholder={`#${currentChannel} にメッセージを送信 (Ctrl+Enterで送信)`}
                   variant="outlined"
                   size="small"
                   disabled={isConnecting}
+                  multiline
+                  maxRows={10}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       bgcolor: 'rgba(255,255,255,0.05)',
