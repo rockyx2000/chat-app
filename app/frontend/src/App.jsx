@@ -147,16 +147,26 @@ export default function App() {
   }, [])
 
   const switchChannel = async (channelName) => {
-    if (isConnecting) return
+    if (isConnecting || currentChannel === channelName) return
     
     console.log(`Switching to channel: ${channelName}`)
     setIsConnecting(true)
     
-    // 既存の接続を切断
-    if (socketRef.current) {
-      console.log('Disconnecting existing socket')
-      socketRef.current.disconnect()
-      socketRef.current = null
+    // 既存のSocket.IO接続がある場合は、roomを切り替えるだけ（切断しない）
+    if (socketRef.current && socketRef.current.connected) {
+      console.log('Switching room without disconnecting socket')
+      // 現在のroomから離れる（必要に応じて）
+      // 新しいroomに参加
+      const joinData = { room: channelName, username: username, picture: userPicture }
+      socketRef.current.emit('join', joinData)
+      console.log('Emitted join event for new room:', channelName)
+    } else {
+      // Socket.IO接続がない場合は新しく接続
+      console.log('No existing socket connection, creating new one')
+      if (socketRef.current) {
+        socketRef.current.disconnect()
+        socketRef.current = null
+      }
     }
     
     setCurrentChannel(channelName)
@@ -169,15 +179,7 @@ export default function App() {
       return next
     })
     
-    // 新しいチャンネルに接続
-    console.log(`Connecting to channel: ${channelName}`)
-    await connectToChannel(channelName, username, userPicture)
-    setIsConnecting(false)
-    console.log(`Successfully switched to channel: ${channelName}`)
-  }
-
-  const connectToChannel = async (channelName, userName = username, userPic = userPicture) => {
-    // 履歴をロード
+    // メッセージ履歴を読み込む
     try {
       const historyRes = await fetch(`/api/channels/${channelName}/messages`)
       const history = await historyRes.json()
@@ -187,12 +189,49 @@ export default function App() {
         content: msg.content,
         picture: msg.picture,
         createdAt: new Date(msg.ts),
-        editedAt: msg.editedAt ? new Date(msg.editedAt) : null
+        editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+        mentions: msg.mentions || []
       })))
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
     } catch (error) {
       console.error('Error loading message history:', error)
     }
+    
+    // Socket.IO接続がない場合は新しく接続
+    if (!socketRef.current || !socketRef.current.connected) {
+      console.log(`Connecting to channel: ${channelName}`)
+      await connectToChannel(channelName, username, userPicture)
+    }
+    
+    setIsConnecting(false)
+    console.log(`Successfully switched to channel: ${channelName}`)
+  }
+
+  const connectToChannel = async (channelName, userName = username, userPic = userPicture) => {
+    // 既存のSocket.IO接続がある場合は、イベントハンドラを再登録しない
+    if (socketRef.current && socketRef.current.connected) {
+      console.log('Socket already connected, just joining new room')
+      const joinData = { room: channelName, username: userName, picture: userPic }
+      socketRef.current.emit('join', joinData)
+      return
+    }
+
+    // 履歴をロード（ここではロードしない - switchChannelでロード済み）
+    // try {
+    //   const historyRes = await fetch(`/api/channels/${channelName}/messages`)
+    //   const history = await historyRes.json()
+    //   setMessages(history.map(msg => ({
+    //     id: msg.id,
+    //     username: msg.username,
+    //     content: msg.content,
+    //     picture: msg.picture,
+    //     createdAt: new Date(msg.ts),
+    //     editedAt: msg.editedAt ? new Date(msg.editedAt) : null
+    //   })))
+    //   console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
+    // } catch (error) {
+    //   console.error('Error loading message history:', error)
+    // }
 
     const socket = io({ path: '/socket.io', query: { username: userName } })
     console.log('Socket.IO client connecting with username:', userName)
