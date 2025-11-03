@@ -82,6 +82,8 @@ export default function App() {
   const [channels] = React.useState(['general', 'random', 'help'])
   const [isLoading, setIsLoading] = React.useState(true)
   const [isConnecting, setIsConnecting] = React.useState(false)
+  const [isLoadingMessages, setIsLoadingMessages] = React.useState(false)
+  const messagesContainerRef = React.useRef(null)
   const [onlineUsers, setOnlineUsers] = React.useState([])
   const [editingMessage, setEditingMessage] = React.useState(null)
   const [editContent, setEditContent] = React.useState('')
@@ -171,6 +173,7 @@ export default function App() {
     
     setCurrentChannel(channelName)
     setMessages([])
+    setIsLoadingMessages(true)
     
     // 切り替えたチャンネルの未読をクリア
     setUnreadChannels(prev => {
@@ -193,8 +196,17 @@ export default function App() {
         mentions: msg.mentions || []
       })))
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
+      
+      // メッセージ読み込み完了後、即座に最下部にスクロール（アニメーションなし）
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+        }
+        setIsLoadingMessages(false)
+      }, 0)
     } catch (error) {
       console.error('Error loading message history:', error)
+      setIsLoadingMessages(false)
     }
     
     // Socket.IO接続がない場合は新しく接続
@@ -218,6 +230,7 @@ export default function App() {
     }
 
     // 初回接続時は履歴をロード
+    setIsLoadingMessages(true)
     try {
       const historyRes = await fetch(`/api/channels/${channelName}/messages`)
       const history = await historyRes.json()
@@ -231,8 +244,17 @@ export default function App() {
         mentions: msg.mentions || []
       })))
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
+      
+      // メッセージ読み込み完了後、即座に最下部にスクロール（アニメーションなし）
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+        }
+        setIsLoadingMessages(false)
+      }, 0)
     } catch (error) {
       console.error('Error loading message history:', error)
+      setIsLoadingMessages(false)
     }
 
     const socket = io({ path: '/socket.io', query: { username: userName } })
@@ -789,8 +811,11 @@ export default function App() {
   const messagesEndRef = React.useRef(null)
   
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    // メッセージ読み込み中でない場合のみスクロール（新規メッセージ受信時など）
+    if (!isLoadingMessages && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [messages, isLoadingMessages])
 
   // コンテキストメニュー外をクリックした時にメニューを閉じる
   React.useEffect(() => {
@@ -847,7 +872,7 @@ export default function App() {
     }
   }, [contextMenu])
 
-  // ローディング画面
+  // ローディング画面（スケルトン表示）
   if (isLoading) {
     return (
       <ThemeProvider theme={discordTheme}>
@@ -856,15 +881,97 @@ export default function App() {
           display: 'flex', 
           height: '100vh', 
           bgcolor: 'background.default',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 2
+          overflow: 'hidden'
         }}>
-          <CircularProgress size={60} />
-          <Typography variant="h6" color="text.secondary">
-            チャットアプリを読み込み中...
-          </Typography>
+          {/* 左サイドバー */}
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              width: 240, 
+              bgcolor: 'background.paper',
+              borderRadius: 0,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Skeleton variant="text" width={120} height={24} />
+            </Box>
+            <Box sx={{ p: 1 }}>
+              <Skeleton variant="text" width={100} height={16} sx={{ mb: 1 }} />
+              <Skeleton variant="rectangular" width="100%" height={40} sx={{ mb: 0.5, borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width="100%" height={40} sx={{ mb: 0.5, borderRadius: 1 }} />
+              <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+            </Box>
+            <Box sx={{ mt: 'auto', p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Skeleton variant="circular" width={32} height={32} />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton variant="text" width={80} height={16} />
+                  <Skeleton variant="text" width={60} height={12} />
+                </Box>
+              </Box>
+            </Box>
+          </Paper>
+
+          {/* メインエリア */}
+          <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* チャンネルヘッダー */}
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider', minHeight: 64 }}>
+              <Skeleton variant="text" width={120} height={24} />
+            </Box>
+
+            {/* メッセージエリア */}
+            <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
+              {[...Array(8)].map((_, index) => (
+                <Box key={index} sx={{ mb: 2, display: 'flex', gap: 2 }}>
+                  <Skeleton variant="circular" width={40} height={40} />
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      <Skeleton variant="text" width={120} height={20} />
+                      <Skeleton variant="text" width={60} height={16} />
+                    </Box>
+                    <Skeleton variant="text" width="80%" height={20} />
+                    <Skeleton variant="text" width="60%" height={20} />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+
+            {/* 入力エリア */}
+            <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Skeleton variant="rectangular" width="100%" height={40} sx={{ borderRadius: 1 }} />
+            </Box>
+          </Box>
+
+          {/* 右サイドバー */}
+          <Paper 
+            elevation={0} 
+            sx={{ 
+              width: 200, 
+              bgcolor: 'background.paper',
+              borderRadius: 0,
+              borderLeft: '1px solid',
+              borderColor: 'divider',
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Skeleton variant="text" width={80} height={20} />
+            </Box>
+            <Box sx={{ p: 1 }}>
+              {[...Array(3)].map((_, index) => (
+                <Box key={index} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Skeleton variant="circular" width={32} height={32} />
+                  <Box sx={{ flex: 1 }}>
+                    <Skeleton variant="text" width={100} height={16} />
+                    <Skeleton variant="text" width={60} height={12} />
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Paper>
         </Box>
       </ThemeProvider>
     )
@@ -1177,14 +1284,34 @@ export default function App() {
           </Box>
 
           {/* メッセージエリア */}
-          <Box sx={{ 
-            flex: 1, 
-            overflow: 'auto', 
-            p: 2,
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            {messages.length === 0 && !isConnecting ? (
+          <Box 
+            ref={messagesContainerRef}
+            sx={{ 
+              flex: 1, 
+              overflow: 'auto', 
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+          >
+            {isLoadingMessages ? (
+              // スケルトンローディング
+              <Box>
+                {[...Array(5)].map((_, index) => (
+                  <Box key={index} sx={{ mb: 2, display: 'flex', gap: 2 }}>
+                    <Skeleton variant="circular" width={40} height={40} />
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <Skeleton variant="text" width={120} height={20} />
+                        <Skeleton variant="text" width={60} height={16} />
+                      </Box>
+                      <Skeleton variant="text" width="80%" height={20} />
+                      <Skeleton variant="text" width="60%" height={20} />
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            ) : messages.length === 0 && !isConnecting ? (
               <Box sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
