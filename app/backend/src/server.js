@@ -393,8 +393,13 @@ io.on('connection', socket => {
       }
       // そのチャンネルのメッセージとして送信
       console.log(`Emitting message to room: ${room}`, payload)
-      const socketsInRoom = await io.in(room).fetchSockets()
-      console.log(`Sockets in room ${room}:`, socketsInRoom.map(s => ({ id: s.id, username: s.data.username, rooms: Array.from(s.rooms) })))
+      // room内のsocket数を確認（デバッグ用）
+      try {
+        const socketsInRoom = await io.in(room).fetchSockets()
+        console.log(`Sockets in room ${room}:`, socketsInRoom.length, socketsInRoom.map(s => ({ id: s.id, username: s.data.username })))
+      } catch (err) {
+        console.warn('Could not fetch sockets (this is okay):', err.message)
+      }
       io.to(room).emit('message', payload)
       // 全てのクライアントに未読通知用に送信（チャンネル名を含むので、クライアント側でフィルタリング可能）
       console.log(`Emitting new_message to all clients`, payload)
