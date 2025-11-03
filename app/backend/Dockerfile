@@ -17,8 +17,12 @@ COPY . .
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-# 本番用にdev依存を削除（prismaは依存関係に含める）
+# 本番用にdev依存を削除（prismaは依存関係に含めるので削除されない）
 RUN npm prune --omit=dev
 
+# prismaが正しくインストールされているか確認
+RUN npx prisma --version || (echo "ERROR: prisma not found" && exit 1)
+
 EXPOSE 8080
-ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# ENTRYPOINTはinitコンテナで上書きできるように、CMDとして設定
+CMD ["/app/docker-entrypoint.sh"]
