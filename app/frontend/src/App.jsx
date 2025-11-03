@@ -1309,16 +1309,29 @@ export default function App() {
             ref={messagesContainerRef}
             sx={{ 
               flex: 1, 
-              overflow: 'auto', 
+              overflow: isLoadingMessages ? 'hidden' : 'auto', // 読み込み中はスクロールを隠す
               p: 2,
               display: 'flex',
-              flexDirection: 'column'
+              flexDirection: 'column',
+              position: 'relative'
             }}
           >
             {isLoadingMessages ? (
               // スケルトンローディング（メッセージ読み込み中は常に表示、画面いっぱいに表示）
-              <Box sx={{ minHeight: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', pb: 2 }}>
-                {[...Array(30)].map((_, index) => (
+              <Box sx={{ 
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                p: 2,
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+                minHeight: '100%'
+              }}>
+                {[...Array(50)].map((_, index) => (
                   <Box key={index} sx={{ mb: 2, display: 'flex', gap: 2 }}>
                     <Skeleton variant="circular" width={40} height={40} />
                     <Box sx={{ flex: 1 }}>
