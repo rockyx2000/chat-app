@@ -1,5 +1,4 @@
 #!/bin/sh
-set -e
 
 echo "=== Starting backend container ==="
 echo "Current directory: $(pwd)"
@@ -8,14 +7,15 @@ if [ -n "$DATABASE_URL" ]; then
   echo "DATABASE_URL starts with: ${DATABASE_URL%:*}"
 fi
 
+# Prismaの確認（エラー時も続行）
 echo "Prisma version:"
-npx prisma --version || {
+if ! npx prisma --version; then
     echo "ERROR: prisma command not found"
     echo "Checking if prisma is installed..."
     ls -la node_modules/.bin/prisma || echo "prisma binary not found"
     which prisma || echo "prisma not in PATH"
     exit 1
-}
+fi
 
 echo "Checking Prisma schema..."
 if [ ! -f "prisma/schema.prisma" ]; then
@@ -33,24 +33,24 @@ fi
 
 echo "Running database migrations..."
 # リトライロジック（データベースが準備できるまで待つ）
-MAX_RETRIES=10
-RETRY_DELAY=3
+MAX_RETRIES=15
+RETRY_DELAY=5
 RETRY_COUNT=0
+MIGRATION_SUCCESS=false
 
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
   echo "Attempting migration (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)..."
   
   if npx prisma migrate deploy 2>&1; then
     echo "Migration succeeded!"
-    echo "Migrations completed successfully!"
-    echo "Starting application..."
-    exec node src/server.js
+    MIGRATION_SUCCESS=true
+    break
   else
     EXIT_CODE=$?
     RETRY_COUNT=$((RETRY_COUNT + 1))
     
     if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-      echo "Migration failed, will retry in ${RETRY_DELAY} seconds..."
+      echo "Migration failed (exit code: $EXIT_CODE), will retry in ${RETRY_DELAY} seconds..."
       sleep $RETRY_DELAY
     else
       echo "ERROR: Migration failed after $MAX_RETRIES attempts!"
@@ -88,3 +88,12 @@ while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
     fi
   fi
 done
+
+if [ "$MIGRATION_SUCCESS" = "false" ]; then
+  echo "ERROR: Migration did not succeed after all retries"
+  exit 1
+fi
+
+echo "Migrations completed successfully!"
+echo "Starting application..."
+exec node src/server.js
