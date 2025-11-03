@@ -188,7 +188,7 @@ export default function App() {
     console.log('Socket.IO client connecting with username:', userName)
     
     socket.on('connect', () => {
-      console.log('Socket.IO client connected successfully')
+      console.log('Socket.IO client connected successfully, joining room:', channelName)
       socket.emit('join', { room: channelName, username: userName, picture: userPic })
     })
     
@@ -201,6 +201,7 @@ export default function App() {
     socket.on('message', msg => {
       // messageイベントはio.to(room).emitで送信されるので、このsocketが参加しているroomのメッセージ
       // つまり現在のチャンネルのメッセージとして表示に追加
+      console.log('Received message event:', msg)
       setMessages(m => [...m, { 
         ...msg, 
         createdAt: new Date(msg.ts),
@@ -271,7 +272,11 @@ export default function App() {
 
   const send = (e) => {
     e?.preventDefault()
-    if (!socketRef.current || !content.trim()) return
+    if (!socketRef.current || !content.trim()) {
+      console.log('Cannot send message:', { socketExists: !!socketRef.current, hasContent: !!content.trim() })
+      return
+    }
+    console.log('Sending message:', { room: currentChannel, content: content.trim() })
     socketRef.current.emit('message', { room: currentChannel, content: content.trim() })
     setContent('')
   }

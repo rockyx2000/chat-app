@@ -279,8 +279,9 @@ io.on('connection', socket => {
   console.log('Socket.IO client connected:', socket.id)
   
   socket.on('join', async ({ room, username, picture }) => {
-    console.log(`User ${username} joining room: ${room}`)
+    console.log(`User ${username} joining room: ${room}, socket.id: ${socket.id}`)
     socket.join(room)
+    console.log(`Socket ${socket.id} joined room ${room}. Rooms:`, Array.from(socket.rooms))
     socket.data.username = username
     socket.data.picture = picture || null
     
@@ -390,8 +391,10 @@ io.on('connection', socket => {
         editedAt: message.editedAt
       }
       // そのチャンネルのメッセージとして送信
+      console.log(`Emitting message to room: ${room}`, payload)
       io.to(room).emit('message', payload)
       // 全てのクライアントに未読通知用に送信（チャンネル名を含むので、クライアント側でフィルタリング可能）
+      console.log(`Emitting new_message to all clients`, payload)
       io.emit('new_message', payload)
     } catch (e) {
       // エラーが発生した場合でもリアルタイム通知は送信
