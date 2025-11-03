@@ -199,7 +199,8 @@ export default function App() {
       setMessages(m => [...m, { system: true, content: msg }])
     })
     socket.on('message', msg => {
-      // 現在のチャンネルのメッセージなので表示に追加
+      // messageイベントはio.to(room).emitで送信されるので、このsocketが参加しているroomのメッセージ
+      // つまり現在のチャンネルのメッセージとして表示に追加
       setMessages(m => [...m, { 
         ...msg, 
         createdAt: new Date(msg.ts),
@@ -209,7 +210,9 @@ export default function App() {
     
     // 全チャンネルの新規メッセージ通知（未読マーク用）
     socket.on('new_message', msg => {
-      const messageRoom = msg.room || channelName
+      const messageRoom = msg.room
+      if (!messageRoom) return // roomがない場合は無視
+      
       const isMention = msg.mentions?.includes?.(username) || false // 将来的なメンション機能に対応
       
       // 現在のチャンネルと比較して未読マークを設定
