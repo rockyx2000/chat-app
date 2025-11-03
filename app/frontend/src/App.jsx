@@ -694,15 +694,20 @@ export default function App() {
         
         // メンション部分
         const mentionedUsername = match[1]
+        // 自分へのメンションかどうかを判定
+        const isSelfMention = mentionedUsername === username
         
-        // すべてのメンションを青色で統一表示（本家のように小さめのフォントサイズ）
         parts.push(
           <Box
             key={`${lineIndex}-${match.index}`}
             component="span"
             sx={{
-              bgcolor: 'rgba(88, 101, 242, 0.15)',
-              color: 'primary.main',
+              bgcolor: isSelfMention 
+                ? 'rgba(250, 168, 26, 0.2)' // 自分へのメンションは黄色っぽく
+                : 'rgba(88, 101, 242, 0.15)', // それ以外は青色
+              color: isSelfMention 
+                ? 'rgba(250, 168, 26, 1)' // 自分へのメンションは黄色
+                : 'primary.main', // それ以外は青色
               fontWeight: 'medium',
               fontSize: '0.85em', // メンション部分を少し小さく
               px: 0.5,
@@ -1284,28 +1289,27 @@ export default function App() {
                           bgcolor: 'rgba(114, 137, 218, 0.2)',
                         }
                       },
-                      // 未読メッセージがあるチャンネルのハイライト
-                      ...(unreadChannels[channel] && currentChannel !== channel && {
-                        bgcolor: unreadChannels[channel].mentions > 0 
-                          ? 'rgba(237, 66, 69, 0.15)' // メンションがある場合は赤っぽく
-                          : 'rgba(255, 255, 255, 0.08)',
+                      // 未読メッセージがあるチャンネルのハイライト（メンションがある場合のみ）
+                      ...(unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].mentions > 0 && {
+                        bgcolor: 'rgba(237, 66, 69, 0.15)', // メンションがある場合のみ赤っぽく
                         animation: 'pulse 2s ease-in-out infinite',
                         '@keyframes pulse': {
                           '0%, 100%': {
-                            bgcolor: unreadChannels[channel].mentions > 0 
-                              ? 'rgba(237, 66, 69, 0.15)'
-                              : 'rgba(255, 255, 255, 0.08)',
+                            bgcolor: 'rgba(237, 66, 69, 0.15)',
                           },
                           '50%': {
-                            bgcolor: unreadChannels[channel].mentions > 0 
-                              ? 'rgba(237, 66, 69, 0.25)'
-                              : 'rgba(255, 255, 255, 0.15)',
+                            bgcolor: 'rgba(237, 66, 69, 0.25)',
                           },
                         },
                         '&:hover': {
-                          bgcolor: unreadChannels[channel].mentions > 0 
-                            ? 'rgba(237, 66, 69, 0.20)'
-                            : 'rgba(255, 255, 255, 0.12)',
+                          bgcolor: 'rgba(237, 66, 69, 0.20)',
+                        }
+                      }),
+                      // メンションがない未読チャンネルは控えめに（Discord風）
+                      ...(unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].mentions === 0 && {
+                        bgcolor: 'rgba(255, 255, 255, 0.03)', // 非常に控えめなハイライト
+                        '&:hover': {
+                          bgcolor: 'rgba(255, 255, 255, 0.06)',
                         }
                       })
                     }}
@@ -1320,43 +1324,26 @@ export default function App() {
                         color: currentChannel === channel ? 'text.primary' : 'text.secondary'
                       }}
                     />
-                    {/* 未読数とメンション数の表示 */}
-                    {unreadChannels[channel] && currentChannel !== channel && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 1 }}>
-                        {unreadChannels[channel].mentions > 0 ? (
-                          <Chip
-                            label={unreadChannels[channel].mentions}
-                            size="small"
-                            sx={{
-                              bgcolor: 'error.main',
-                              color: 'white',
-                              height: 18,
-                              minWidth: 18,
-                              fontSize: '0.7rem',
-                              fontWeight: 'bold',
-                              '& .MuiChip-label': {
-                                px: 0.5
-                              }
-                            }}
-                          />
-                        ) : unreadChannels[channel].unread > 0 ? (
-                          <Box
-                            sx={{
-                              bgcolor: 'rgba(255, 255, 255, 0.2)',
-                              color: 'text.primary',
-                              borderRadius: '50%',
-                              width: 18,
-                              height: 18,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              fontSize: '0.7rem',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            {unreadChannels[channel].unread > 99 ? '99+' : unreadChannels[channel].unread}
-                          </Box>
-                        ) : null}
+                    {/* メンション数の表示（メンションがある時だけ赤丸に数字） */}
+                    {unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].mentions > 0 && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
+                        <Box
+                          sx={{
+                            bgcolor: 'error.main',
+                            color: 'white',
+                            borderRadius: '50%',
+                            minWidth: 20,
+                            height: 20,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.7rem',
+                            fontWeight: 'bold',
+                            px: unreadChannels[channel].mentions > 9 ? 0.5 : 0, // 2桁の場合は左右にパディング
+                          }}
+                        >
+                          {unreadChannels[channel].mentions > 99 ? '99+' : unreadChannels[channel].mentions}
+                        </Box>
                       </Box>
                     )}
                     {isConnecting && currentChannel === channel && (
