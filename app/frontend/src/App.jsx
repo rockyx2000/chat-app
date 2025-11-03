@@ -469,30 +469,22 @@ export default function App() {
       
       // メンション部分
       const mentionedUsername = match[1]
-      // mentions配列に含まれている場合、または現在のユーザーの場合は強調表示
-      const isMentioned = Array.isArray(mentions) && mentions.includes(mentionedUsername)
-      const isCurrentUser = mentionedUsername === username
-      const shouldHighlight = isMentioned || isCurrentUser
       
+      // すべてのメンションを青色で統一表示（本家のように小さめのフォントサイズ）
       parts.push(
         <Box
           key={match.index}
           component="span"
           sx={{
-            bgcolor: shouldHighlight 
-              ? (isCurrentUser ? 'rgba(255, 193, 7, 0.3)' : 'rgba(237, 66, 69, 0.2)')
-              : 'rgba(88, 101, 242, 0.15)',
-            color: shouldHighlight
-              ? (isCurrentUser ? 'warning.main' : 'error.main')
-              : 'primary.main',
-            fontWeight: shouldHighlight ? 'bold' : 'medium',
+            bgcolor: 'rgba(88, 101, 242, 0.15)',
+            color: 'primary.main',
+            fontWeight: 'medium',
+            fontSize: '0.85em', // メンション部分を少し小さく
             px: 0.5,
             borderRadius: 0.5,
             mx: 0.25,
-            border: shouldHighlight ? '1px solid' : 'none',
-            borderColor: shouldHighlight 
-              ? (isCurrentUser ? 'warning.main' : 'error.main')
-              : 'transparent'
+            display: 'inline-block',
+            verticalAlign: 'baseline' // テキストのベースラインに合わせる
           }}
         >
           @{mentionedUsername}
