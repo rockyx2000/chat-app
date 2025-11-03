@@ -117,8 +117,8 @@ export default function App() {
           setIsAuthenticated(true)
           console.log('Logged in as:', userData.email)
           
-          // 認証成功後、チャンネルに接続
-          await connectToChannel(currentChannel)
+          // 認証成功後、チャンネルに接続（正しいユーザー名を渡す）
+          await connectToChannel(currentChannel, userData.name, userData.picture)
         } else {
           setIsAuthenticated(false)
           setAuthError('Google OAuth認証が必要です。')
@@ -152,12 +152,12 @@ export default function App() {
     
     // 新しいチャンネルに接続
     console.log(`Connecting to channel: ${channelName}`)
-    await connectToChannel(channelName)
+    await connectToChannel(channelName, username, userPicture)
     setIsConnecting(false)
     console.log(`Successfully switched to channel: ${channelName}`)
   }
 
-  const connectToChannel = async (channelName) => {
+  const connectToChannel = async (channelName, userName = username, userPic = userPicture) => {
     // 履歴をロード
     try {
       const historyRes = await fetch(`/api/channels/${channelName}/messages`)
@@ -175,12 +175,12 @@ export default function App() {
       console.error('Error loading message history:', error)
     }
 
-    const socket = io({ path: '/socket.io', query: { username } })
-    console.log('Socket.IO client connecting with username:', username)
+    const socket = io({ path: '/socket.io', query: { username: userName } })
+    console.log('Socket.IO client connecting with username:', userName)
     
     socket.on('connect', () => {
       console.log('Socket.IO client connected successfully')
-      socket.emit('join', { room: channelName, username, picture: userPicture })
+      socket.emit('join', { room: channelName, username: userName, picture: userPic })
     })
     
     socket.on('connect_error', (error) => {
