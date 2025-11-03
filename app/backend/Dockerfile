@@ -13,8 +13,12 @@ RUN npx prisma generate || (echo "warn: prisma generate skipped" && true)
 # アプリ本体をコピー
 COPY . .
 
-# 本番用にdev依存を削除
+# エントリーポイントスクリプトをコピーして実行可能にする
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
+# 本番用にdev依存を削除（prismaは依存関係に含める）
 RUN npm prune --omit=dev
 
 EXPOSE 8080
-CMD ["node", "src/server.js"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]

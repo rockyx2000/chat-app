@@ -13,12 +13,12 @@
   },
   "dependencies": {
     "@prisma/client": "5.18.0",
+    "prisma": "5.18.0",
     "cors": "2.8.5",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "socket.io": "^4.7.5"
   },
   "devDependencies": {
-    "prisma": "5.18.0"
   }
 }
