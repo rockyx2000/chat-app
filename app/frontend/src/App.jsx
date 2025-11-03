@@ -195,23 +195,45 @@ export default function App() {
         editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
         mentions: msg.mentions || []
       }))
+      // メッセージは読み込むが、スケルトンは表示し続ける
       setMessages(mappedHistory)
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
       
-      // メッセージがDOMに反映された後、最下部にスクロールしてからスケルトンを非表示
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          // 即座に最下部にスクロール（アニメーションなし）
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-          
-          // スクロール完了後に少し待機してからスケルトンを非表示（スクロールが見えないように）
-          setTimeout(() => {
+      // DOMに反映されるのを待ってから、スケルトン表示のまま最下部にスクロール
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            // スケルトン表示のまま最下部に即座にスクロール（アニメーションなし）
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+            
+            // スクロール位置を確認して、最下部に到達したことを確認してからスケルトンを非表示
+            const checkScrollComplete = () => {
+              const container = messagesContainerRef.current
+              if (container) {
+                const isAtBottom = Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 10
+                if (isAtBottom) {
+                  // 最下部に到達したら、少し待機してからスケルトンを非表示
+                  setTimeout(() => {
+                    setIsLoadingMessages(false)
+                  }, 50)
+                } else {
+                  // まだ最下部に到達していない場合は再チェック
+                  requestAnimationFrame(checkScrollComplete)
+                }
+              } else {
+                setIsLoadingMessages(false)
+              }
+            }
+            
+            // 最初のチェック
+            setTimeout(() => {
+              checkScrollComplete()
+            }, 10)
+          } else {
             setIsLoadingMessages(false)
-          }, 100)
-        } else {
-          setIsLoadingMessages(false)
-        }
-      }, 10)
+          }
+        })
+      })
     } catch (error) {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
@@ -251,23 +273,45 @@ export default function App() {
         editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
         mentions: msg.mentions || []
       }))
+      // メッセージは読み込むが、スケルトンは表示し続ける
       setMessages(mappedHistory)
       console.log(`Loaded ${history.length} messages for channel: ${channelName}`)
       
-      // メッセージがDOMに反映された後、最下部にスクロールしてからスケルトンを非表示
-      setTimeout(() => {
-        if (messagesContainerRef.current) {
-          // 即座に最下部にスクロール（アニメーションなし）
-          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
-          
-          // スクロール完了後に少し待機してからスケルトンを非表示（スクロールが見えないように）
-          setTimeout(() => {
+      // DOMに反映されるのを待ってから、スケルトン表示のまま最下部にスクロール
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            // スケルトン表示のまま最下部に即座にスクロール（アニメーションなし）
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+            
+            // スクロール位置を確認して、最下部に到達したことを確認してからスケルトンを非表示
+            const checkScrollComplete = () => {
+              const container = messagesContainerRef.current
+              if (container) {
+                const isAtBottom = Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 10
+                if (isAtBottom) {
+                  // 最下部に到達したら、少し待機してからスケルトンを非表示
+                  setTimeout(() => {
+                    setIsLoadingMessages(false)
+                  }, 50)
+                } else {
+                  // まだ最下部に到達していない場合は再チェック
+                  requestAnimationFrame(checkScrollComplete)
+                }
+              } else {
+                setIsLoadingMessages(false)
+              }
+            }
+            
+            // 最初のチェック
+            setTimeout(() => {
+              checkScrollComplete()
+            }, 10)
+          } else {
             setIsLoadingMessages(false)
-          }, 100)
-        } else {
-          setIsLoadingMessages(false)
-        }
-      }, 10)
+          }
+        })
+      })
     } catch (error) {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
