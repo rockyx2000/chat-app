@@ -165,20 +165,24 @@ export default function App() {
     setMessages([])
     setIsLoadingMessages(true)
     
-    // Socket.IO接続を確立または更新（接続が確立される前にcurrentChannelを更新しない）
+    // チャンネルを先に更新（イベントハンドラが正しいチャンネルを参照するため）
+    setCurrentChannel(channelName)
+    
+    // Socket.IO接続を確立または更新
     if (!socketRef.current || !socketRef.current.connected) {
       console.log(`Connecting to channel before loading messages: ${channelName}`)
       await connectToChannel(channelName, username, userPicture)
     } else {
       console.log('Switching room without disconnecting socket')
       // 既存の接続がある場合は、roomを切り替えるだけ（切断しない）
+      // チャンネルは既に更新済みなので、イベントハンドラは正しいチャンネルを参照する
       const joinData = { room: channelName, username: username, picture: userPicture }
       socketRef.current.emit('join', joinData)
       console.log('Emitted join event for new room:', channelName)
+      
+      // joinイベントが処理されるのを少し待つ（サーバー側でroomに参加するまで）
+      await new Promise(resolve => setTimeout(resolve, 100))
     }
-    
-    // Socket.IO接続確立後、チャンネルを更新（これによりイベントハンドラが正しいチャンネルを参照する）
-    setCurrentChannel(channelName)
     
     // メッセージ履歴を読み込む
     try {
@@ -293,9 +297,42 @@ export default function App() {
       return
     }
 
-    // 初回接続時のみ履歴をロード
+    // 初回接続時: Socket.IO接続を先に確立してからメッセージ履歴を読み込む
     setIsLoadingMessages(true)
+    
+    // Socket.IO接続を確立（Promiseで接続完了を待つ）
+    const socket = io({ path: '/socket.io', query: { username: userName } })
+    console.log('Socket.IO client connecting with username:', userName)
+    
+    // 接続時にチャンネルを設定（クロージャーでchannelNameを保持）
+    const targetChannel = channelName
+    const connectPromise = new Promise((resolve) => {
+      socket.on('connect', () => {
+        console.log('Socket.IO client connected successfully, joining room:', targetChannel)
+        // 接続時にcurrentChannelを更新
+        setCurrentChannel(targetChannel)
+        const joinData = { room: targetChannel, username: userName, picture: userPic }
+        console.log('Emitting join event with data:', joinData)
+        socket.emit('join', joinData)
+        console.log('Join event emitted')
+        
+        // joinイベントが処理されるのを少し待つ
+        setTimeout(() => {
+          resolve()
+        }, 200)
+      })
+      
+      socket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error)
+        resolve() // エラーでも続行
+      })
+    })
+    
+    // メッセージ履歴を読み込む（接続確立後）
     try {
+      // Socket.IO接続が確立されるまで待つ
+      await connectPromise
+      
       const historyRes = await fetch(`/api/channels/${channelName}/messages`)
       const history = await historyRes.json()
       const mappedHistory = history.map(msg => ({
@@ -391,26 +428,8 @@ export default function App() {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
     }
-
-    const socket = io({ path: '/socket.io', query: { username: userName } })
-    console.log('Socket.IO client connecting with username:', userName)
     
-    // 接続時にチャンネルを設定（クロージャーでchannelNameを保持）
-    const targetChannel = channelName
-    
-    socket.on('connect', () => {
-      console.log('Socket.IO client connected successfully, joining room:', targetChannel)
-      // 接続時にcurrentChannelを更新（イベントハンドラが正しいチャンネルを参照するため）
-      setCurrentChannel(targetChannel)
-      const joinData = { room: targetChannel, username: userName, picture: userPic }
-      console.log('Emitting join event with data:', joinData)
-      socket.emit('join', joinData)
-      console.log('Join event emitted')
-    })
-    
-    socket.on('connect_error', (error) => {
-      console.error('Socket.IO connection error:', error)
-    })
+    // Socket.IOイベントハンドラを登録（接続確立後、メッセージ履歴読み込み前）
     socket.on('system', msg => {
       setMessages(m => [...m, { system: true, content: msg }])
     })
