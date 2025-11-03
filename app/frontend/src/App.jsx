@@ -214,15 +214,15 @@ export default function App() {
     socket.on('message', msg => {
       // messageイベントはio.to(room).emitで送信されるので、このsocketが参加しているroomのメッセージ
       // つまり現在のチャンネルのメッセージとして表示に追加
-      console.log('Received message event:', msg)
+      console.log('[message event] Received message event:', { id: msg.id, room: msg.room, username: msg.username, content: msg.content?.substring(0, 20) })
       setMessages(m => {
         // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
         const exists = m.find(existing => existing.id === msg.id)
         if (exists) {
-          console.log('Message already exists, skipping:', msg.id)
+          console.log('[message event] Message already exists, skipping:', msg.id)
           return m
         }
-        console.log('Adding new message to list. Current count:', m.length)
+        console.log('[message event] Adding new message to list. Current count:', m.length)
         return [...m, { 
           ...msg, 
           createdAt: new Date(msg.ts),
@@ -234,10 +234,10 @@ export default function App() {
     
     // 全チャンネルの新規メッセージ通知（未読マーク用 + 現在のチャンネルのメッセージ表示）
     socket.on('new_message', msg => {
-      console.log('Received new_message event:', msg)
+      console.log('[new_message event] Received new_message event:', { id: msg.id, room: msg.room, username: msg.username, content: msg.content?.substring(0, 20) })
       const messageRoom = msg.room
       if (!messageRoom) {
-        console.log('new_message has no room, ignoring')
+        console.log('[new_message event] new_message has no room, ignoring')
         return // roomがない場合は無視
       }
       
@@ -246,19 +246,19 @@ export default function App() {
       
       // 現在のチャンネルと比較
       setCurrentChannel(current => {
-        console.log('Processing new_message:', { messageRoom, currentChannel: current, isCurrent: messageRoom === current })
+        console.log('[new_message event] Processing new_message:', { messageRoom, currentChannel: current, isCurrent: messageRoom === current })
         
         if (messageRoom === current) {
           // 現在のチャンネルのメッセージなので表示に追加（messageイベントが届かない場合のフォールバック）
-          console.log('new_message is for current channel, adding to messages')
+          console.log('[new_message event] new_message is for current channel, adding to messages as fallback')
           setMessages(m => {
             // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
             const exists = m.find(existing => existing.id === msg.id)
             if (exists) {
-              console.log('Message already exists in new_message handler, skipping:', msg.id)
+              console.log('[new_message event] Message already exists in new_message handler, skipping:', msg.id)
               return m
             }
-            console.log('Adding new message from new_message event. Current count:', m.length)
+            console.log('[new_message event] Adding new message from new_message event (fallback). Current count:', m.length)
             return [...m, { 
               ...msg, 
               createdAt: new Date(msg.ts),
@@ -268,7 +268,7 @@ export default function App() {
           })
         } else {
           // 別チャンネルのメッセージなので未読としてマーク
-          console.log('Marking as unread for channel:', messageRoom)
+          console.log('[new_message event] Marking as unread for channel:', messageRoom)
           setUnreadChannels(prev => ({
             ...prev,
             [messageRoom]: {
@@ -512,14 +512,16 @@ export default function App() {
   const send = (e) => {
     e?.preventDefault()
     if (!socketRef.current || !content.trim()) {
-      console.log('Cannot send message:', { socketExists: !!socketRef.current, hasContent: !!content.trim() })
+      console.log('[send] Cannot send message:', { socketExists: !!socketRef.current, hasContent: !!content.trim() })
       return
     }
     const trimmedContent = content.trim()
     const mentions = extractMentions(trimmedContent)
-    console.log('Sending message:', { room: currentChannel, content: trimmedContent, mentions, socketConnected: socketRef.current?.connected, socketId: socketRef.current?.id })
+    console.log('[send] Sending message:', { room: currentChannel, content: trimmedContent, mentions, socketConnected: socketRef.current?.connected, socketId: socketRef.current?.id })
     socketRef.current.emit('message', { room: currentChannel, content: trimmedContent, mentions })
     setContent('')
+    // サジェストも閉じる
+    setMentionSuggestions(prev => ({ ...prev, show: false }))
   }
 
   const startEdit = (message) => {
