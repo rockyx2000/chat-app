@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Message" ADD COLUMN "room" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "Message" ADD COLUMN "username" TEXT NOT NULL DEFAULT '';
+

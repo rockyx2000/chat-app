@@ -72,6 +72,8 @@ model Message {
   id        String   @id @default(cuid())
   channelId String
   userId    String
+  room      String   // チャンネル名（検索用）
+  username  String   // ユーザー名（表示用）
   content   String
   createdAt DateTime @default(now())
   editedAt  DateTime?

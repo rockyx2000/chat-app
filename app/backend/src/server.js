@@ -371,6 +371,8 @@ io.on('connection', socket => {
       })
       const message = await prisma.message.create({
         data: {
+          channelId: channel.id,
+          userId: user.id,
           room: room,
           username: username,
           content
