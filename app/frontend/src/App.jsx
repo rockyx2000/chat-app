@@ -221,7 +221,7 @@ export default function App() {
       })
     })
     
-    // 全チャンネルの新規メッセージ通知（未読マーク用）
+    // 全チャンネルの新規メッセージ通知（未読マーク用 + 現在のチャンネルのメッセージ表示）
     socket.on('new_message', msg => {
       console.log('Received new_message event:', msg)
       const messageRoom = msg.room
@@ -232,10 +232,28 @@ export default function App() {
       
       const isMention = msg.mentions?.includes?.(username) || false // 将来的なメンション機能に対応
       
-      // 現在のチャンネルと比較して未読マークを設定
+      // 現在のチャンネルと比較
       setCurrentChannel(current => {
         console.log('Processing new_message:', { messageRoom, currentChannel: current, isCurrent: messageRoom === current })
-        if (messageRoom !== current) {
+        
+        if (messageRoom === current) {
+          // 現在のチャンネルのメッセージなので表示に追加（messageイベントが届かない場合のフォールバック）
+          console.log('new_message is for current channel, adding to messages')
+          setMessages(m => {
+            // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
+            const exists = m.find(existing => existing.id === msg.id)
+            if (exists) {
+              console.log('Message already exists in new_message handler, skipping:', msg.id)
+              return m
+            }
+            console.log('Adding new message from new_message event. Current count:', m.length)
+            return [...m, { 
+              ...msg, 
+              createdAt: new Date(msg.ts),
+              editedAt: msg.editedAt ? new Date(msg.editedAt) : null
+            }]
+          })
+        } else {
           // 別チャンネルのメッセージなので未読としてマーク
           console.log('Marking as unread for channel:', messageRoom)
           setUnreadChannels(prev => ({
@@ -245,8 +263,6 @@ export default function App() {
               mentions: (prev[messageRoom]?.mentions || 0) + (isMention ? 1 : 0)
             }
           }))
-        } else {
-          console.log('new_message is for current channel, but message event should have handled it')
         }
         return current // currentChannelは変更しない
       })
