@@ -382,18 +382,23 @@ io.on('connection', socket => {
       // メッセージIDを含めて一度だけ送信
       const payload = { 
         id: message.id,
+        room: room,  // チャンネル名を含める
         username, 
         picture, 
         content, 
         ts: message.createdAt.getTime(),
         editedAt: message.editedAt
       }
+      // そのチャンネルのメッセージとして送信
       io.to(room).emit('message', payload)
+      // 全てのクライアントに未読通知用に送信（チャンネル名を含むので、クライアント側でフィルタリング可能）
+      io.emit('new_message', payload)
     } catch (e) {
       // エラーが発生した場合でもリアルタイム通知は送信
       console.warn('persist failed:', e?.message)
-      const payload = { username, picture, content, ts: Date.now() }
+      const payload = { room: room, username, picture, content, ts: Date.now() }
       io.to(room).emit('message', payload)
+      io.emit('new_message', payload)
     }
   })
 

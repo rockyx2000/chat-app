@@ -94,6 +94,8 @@ export default function App() {
   const [channelCreateModal, setChannelCreateModal] = React.useState(false)
   const [channelEditModal, setChannelEditModal] = React.useState(null)
   const [newChannelName, setNewChannelName] = React.useState('')
+  // 未読メッセージとメンションを追跡: { channelName: { unread: number, mentions: number } }
+  const [unreadChannels, setUnreadChannels] = React.useState({})
   const socketRef = React.useRef(null)
 
   React.useEffect(() => {
@@ -150,6 +152,13 @@ export default function App() {
     setCurrentChannel(channelName)
     setMessages([])
     
+    // 切り替えたチャンネルの未読をクリア
+    setUnreadChannels(prev => {
+      const next = { ...prev }
+      delete next[channelName]
+      return next
+    })
+    
     // 新しいチャンネルに接続
     console.log(`Connecting to channel: ${channelName}`)
     await connectToChannel(channelName, username, userPicture)
@@ -190,11 +199,33 @@ export default function App() {
       setMessages(m => [...m, { system: true, content: msg }])
     })
     socket.on('message', msg => {
+      // 現在のチャンネルのメッセージなので表示に追加
       setMessages(m => [...m, { 
         ...msg, 
         createdAt: new Date(msg.ts),
         editedAt: msg.editedAt ? new Date(msg.editedAt) : null
       }])
+    })
+    
+    // 全チャンネルの新規メッセージ通知（未読マーク用）
+    socket.on('new_message', msg => {
+      const messageRoom = msg.room || channelName
+      const isMention = msg.mentions?.includes?.(username) || false // 将来的なメンション機能に対応
+      
+      // 現在のチャンネルと比較して未読マークを設定
+      setCurrentChannel(current => {
+        if (messageRoom !== current) {
+          // 別チャンネルのメッセージなので未読としてマーク
+          setUnreadChannels(prev => ({
+            ...prev,
+            [messageRoom]: {
+              unread: (prev[messageRoom]?.unread || 0) + 1,
+              mentions: (prev[messageRoom]?.mentions || 0) + (isMention ? 1 : 0)
+            }
+          }))
+        }
+        return current // currentChannelは変更しない
+      })
     })
     socket.on('user_joined', (userData) => {
       setOnlineUsers(prev => {
@@ -679,7 +710,31 @@ export default function App() {
                         '&:hover': {
                           bgcolor: 'rgba(114, 137, 218, 0.2)',
                         }
-                      }
+                      },
+                      // 未読メッセージがあるチャンネルのハイライト
+                      ...(unreadChannels[channel] && currentChannel !== channel && {
+                        bgcolor: unreadChannels[channel].mentions > 0 
+                          ? 'rgba(237, 66, 69, 0.15)' // メンションがある場合は赤っぽく
+                          : 'rgba(255, 255, 255, 0.08)',
+                        animation: 'pulse 2s ease-in-out infinite',
+                        '@keyframes pulse': {
+                          '0%, 100%': {
+                            bgcolor: unreadChannels[channel].mentions > 0 
+                              ? 'rgba(237, 66, 69, 0.15)'
+                              : 'rgba(255, 255, 255, 0.08)',
+                          },
+                          '50%': {
+                            bgcolor: unreadChannels[channel].mentions > 0 
+                              ? 'rgba(237, 66, 69, 0.25)'
+                              : 'rgba(255, 255, 255, 0.15)',
+                          },
+                        },
+                        '&:hover': {
+                          bgcolor: unreadChannels[channel].mentions > 0 
+                            ? 'rgba(237, 66, 69, 0.20)'
+                            : 'rgba(255, 255, 255, 0.12)',
+                        }
+                      })
                     }}
                   >
                     <ListItemIcon sx={{ minWidth: 24 }}>
@@ -692,6 +747,45 @@ export default function App() {
                         color: currentChannel === channel ? 'text.primary' : 'text.secondary'
                       }}
                     />
+                    {/* 未読数とメンション数の表示 */}
+                    {unreadChannels[channel] && currentChannel !== channel && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mr: 1 }}>
+                        {unreadChannels[channel].mentions > 0 ? (
+                          <Chip
+                            label={unreadChannels[channel].mentions}
+                            size="small"
+                            sx={{
+                              bgcolor: 'error.main',
+                              color: 'white',
+                              height: 18,
+                              minWidth: 18,
+                              fontSize: '0.7rem',
+                              fontWeight: 'bold',
+                              '& .MuiChip-label': {
+                                px: 0.5
+                              }
+                            }}
+                          />
+                        ) : unreadChannels[channel].unread > 0 ? (
+                          <Box
+                            sx={{
+                              bgcolor: 'rgba(255, 255, 255, 0.2)',
+                              color: 'text.primary',
+                              borderRadius: '50%',
+                              width: 18,
+                              height: 18,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '0.7rem',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {unreadChannels[channel].unread > 99 ? '99+' : unreadChannels[channel].unread}
+                          </Box>
+                        ) : null}
+                      </Box>
+                    )}
                     {isConnecting && currentChannel === channel && (
                       <CircularProgress size={16} />
                     )}
