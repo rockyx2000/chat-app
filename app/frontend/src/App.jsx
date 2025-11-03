@@ -205,24 +205,39 @@ export default function App() {
       // messageイベントはio.to(room).emitで送信されるので、このsocketが参加しているroomのメッセージ
       // つまり現在のチャンネルのメッセージとして表示に追加
       console.log('Received message event:', msg)
-      setMessages(m => [...m, { 
-        ...msg, 
-        createdAt: new Date(msg.ts),
-        editedAt: msg.editedAt ? new Date(msg.editedAt) : null
-      }])
+      setMessages(m => {
+        // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
+        const exists = m.find(existing => existing.id === msg.id)
+        if (exists) {
+          console.log('Message already exists, skipping:', msg.id)
+          return m
+        }
+        console.log('Adding new message to list. Current count:', m.length)
+        return [...m, { 
+          ...msg, 
+          createdAt: new Date(msg.ts),
+          editedAt: msg.editedAt ? new Date(msg.editedAt) : null
+        }]
+      })
     })
     
     // 全チャンネルの新規メッセージ通知（未読マーク用）
     socket.on('new_message', msg => {
+      console.log('Received new_message event:', msg)
       const messageRoom = msg.room
-      if (!messageRoom) return // roomがない場合は無視
+      if (!messageRoom) {
+        console.log('new_message has no room, ignoring')
+        return // roomがない場合は無視
+      }
       
       const isMention = msg.mentions?.includes?.(username) || false // 将来的なメンション機能に対応
       
       // 現在のチャンネルと比較して未読マークを設定
       setCurrentChannel(current => {
+        console.log('Processing new_message:', { messageRoom, currentChannel: current, isCurrent: messageRoom === current })
         if (messageRoom !== current) {
           // 別チャンネルのメッセージなので未読としてマーク
+          console.log('Marking as unread for channel:', messageRoom)
           setUnreadChannels(prev => ({
             ...prev,
             [messageRoom]: {
@@ -230,6 +245,8 @@ export default function App() {
               mentions: (prev[messageRoom]?.mentions || 0) + (isMention ? 1 : 0)
             }
           }))
+        } else {
+          console.log('new_message is for current channel, but message event should have handled it')
         }
         return current // currentChannelは変更しない
       })
@@ -904,9 +921,9 @@ export default function App() {
               </Box>
             ) : (
               <Box>
-                {messages.map((m, i) => (
+                {messages.map((m) => (
                   <Box 
-                    key={i} 
+                    key={m.id || `msg-${m.createdAt?.getTime() || Date.now()}`} 
                     sx={{ 
                       mb: 2, 
                       display: 'flex', 

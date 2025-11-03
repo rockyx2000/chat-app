@@ -347,6 +347,7 @@ io.on('connection', socket => {
   socket.on('message', async ({ room, content }) => {
     const username = socket.data.username || 'anonymous'
     const picture = socket.data.picture || null
+    console.log(`Received message event from socket ${socket.id}:`, { room, content, username, socketRooms: Array.from(socket.rooms) })
     
     try {
       const systemUser = await prisma.user.upsert({
@@ -392,6 +393,8 @@ io.on('connection', socket => {
       }
       // そのチャンネルのメッセージとして送信
       console.log(`Emitting message to room: ${room}`, payload)
+      const socketsInRoom = await io.in(room).fetchSockets()
+      console.log(`Sockets in room ${room}:`, socketsInRoom.map(s => ({ id: s.id, username: s.data.username, rooms: Array.from(s.rooms) })))
       io.to(room).emit('message', payload)
       // 全てのクライアントに未読通知用に送信（チャンネル名を含むので、クライアント側でフィルタリング可能）
       console.log(`Emitting new_message to all clients`, payload)
