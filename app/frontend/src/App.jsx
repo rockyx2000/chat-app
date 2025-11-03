@@ -497,54 +497,74 @@ export default function App() {
     // Ctrl+Enterは上で処理済み
   }
 
-  // メッセージ本文をメンション付きでレンダリングする関数
+  // メッセージ本文をメンション付きでレンダリングする関数（改行も処理）
   const renderMessageWithMentions = (content, mentions = []) => {
     if (!content) return ''
     
-    // 本文内の@username形式を全て検出してハイライト表示
-    const parts = []
-    let lastIndex = 0
-    const mentionRegex = /@([^\s@\.,!?;:]+)/g
-    let match
+    // まず改行で分割し、各行を処理する
+    const lines = content.split('\n')
+    const result = []
     
-    while ((match = mentionRegex.exec(content)) !== null) {
-      // メンション前のテキスト
-      if (match.index > lastIndex) {
-        parts.push(content.substring(lastIndex, match.index))
+    lines.forEach((line, lineIndex) => {
+      // 各行内の@username形式を全て検出してハイライト表示
+      const parts = []
+      let lastIndex = 0
+      const mentionRegex = /@([^\s@\.,!?;:]+)/g
+      let match
+      
+      while ((match = mentionRegex.exec(line)) !== null) {
+        // メンション前のテキスト
+        if (match.index > lastIndex) {
+          parts.push(line.substring(lastIndex, match.index))
+        }
+        
+        // メンション部分
+        const mentionedUsername = match[1]
+        
+        // すべてのメンションを青色で統一表示（本家のように小さめのフォントサイズ）
+        parts.push(
+          <Box
+            key={`${lineIndex}-${match.index}`}
+            component="span"
+            sx={{
+              bgcolor: 'rgba(88, 101, 242, 0.15)',
+              color: 'primary.main',
+              fontWeight: 'medium',
+              fontSize: '0.85em', // メンション部分を少し小さく
+              px: 0.5,
+              borderRadius: 0.5,
+              mx: 0.25,
+              display: 'inline-block',
+              verticalAlign: 'baseline' // テキストのベースラインに合わせる
+            }}
+          >
+            @{mentionedUsername}
+          </Box>
+        )
+        lastIndex = match.index + match[0].length
       }
       
-      // メンション部分
-      const mentionedUsername = match[1]
+      // 残りのテキスト
+      if (lastIndex < line.length) {
+        parts.push(line.substring(lastIndex))
+      }
       
-      // すべてのメンションを青色で統一表示（本家のように小さめのフォントサイズ）
-      parts.push(
-        <Box
-          key={match.index}
-          component="span"
-          sx={{
-            bgcolor: 'rgba(88, 101, 242, 0.15)',
-            color: 'primary.main',
-            fontWeight: 'medium',
-            fontSize: '0.85em', // メンション部分を少し小さく
-            px: 0.5,
-            borderRadius: 0.5,
-            mx: 0.25,
-            display: 'inline-block',
-            verticalAlign: 'baseline' // テキストのベースラインに合わせる
-          }}
-        >
-          @{mentionedUsername}
-        </Box>
-      )
-      lastIndex = match.index + match[0].length
-    }
+      // 行を追加（最後の行以外は改行を追加）
+      if (parts.length > 0 || line === '') {
+        result.push(
+          <React.Fragment key={lineIndex}>
+            {parts.length > 0 ? parts : (line === '' ? '\u00A0' : line)}
+          </React.Fragment>
+        )
+      }
+      
+      // 最後の行以外は改行を追加
+      if (lineIndex < lines.length - 1) {
+        result.push(<br key={`br-${lineIndex}`} />)
+      }
+    })
     
-    // 残りのテキスト
-    if (lastIndex < content.length) {
-      parts.push(content.substring(lastIndex))
-    }
-    
-    return parts.length > 0 ? parts : content
+    return result.length > 0 ? result : content
   }
 
   const send = (e) => {
@@ -1315,7 +1335,7 @@ export default function App() {
                               </Box>
                             </Box>
                           ) : (
-                            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap' }}>
                               <Typography 
                                 variant="body1" 
                                 color="text.primary"
@@ -1323,9 +1343,11 @@ export default function App() {
                                   transition: 'color 0.2s ease-in-out',
                                   '&:hover': {
                                     color: 'text.secondary'
-                                  }
+                                  },
+                                  whiteSpace: 'pre-wrap', // 改行と空白を保持
+                                  wordBreak: 'break-word' // 長い単語を折り返し
                                 }}
-                                component="span"
+                                component="div"
                               >
                                 {renderMessageWithMentions(m.content, m.mentions || [])}
                               </Typography>
