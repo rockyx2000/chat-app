@@ -306,6 +306,119 @@ export default function App() {
     
     // 接続時にチャンネルを設定（クロージャーでchannelNameを保持）
     const targetChannel = channelName
+    
+    // イベントハンドラを接続確立前に登録（接続直後に発生するイベントをキャッチするため）
+    socket.on('system', msg => {
+      setMessages(m => [...m, { system: true, content: msg }])
+    })
+    socket.on('message', msg => {
+      // messageイベントはio.to(room).emitで送信されるので、このsocketが参加しているroomのメッセージ
+      // 現在のチャンネルと一致することを確認してから追加
+      console.log('[message event] Received message event:', { id: msg.id, room: msg.room, username: msg.username, content: msg.content?.substring(0, 20) })
+      
+      // 現在のチャンネルを確認（状態更新関数内で最新値を取得）
+      setCurrentChannel(current => {
+        // メッセージのroomが現在のチャンネルと一致する場合のみ追加
+        if (msg.room === current) {
+          setMessages(m => {
+            // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
+            const exists = m.find(existing => existing.id === msg.id)
+            if (exists) {
+              console.log('[message event] Message already exists, skipping:', msg.id)
+              return m
+            }
+            console.log('[message event] Adding new message to list. Current count:', m.length)
+            return [...m, { 
+              ...msg, 
+              createdAt: new Date(msg.ts),
+              editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+              mentions: msg.mentions || [] // メンション情報を含める
+            }]
+          })
+        } else {
+          console.log('[message event] Message room does not match current channel, ignoring:', { messageRoom: msg.room, currentChannel: current })
+        }
+        return current // currentChannelは変更しない
+      })
+    })
+    
+    // 全チャンネルの新規メッセージ通知（未読マーク用 + 現在のチャンネルのメッセージ表示）
+    socket.on('new_message', msg => {
+      console.log('[new_message event] Received new_message event:', { id: msg.id, room: msg.room, username: msg.username, content: msg.content?.substring(0, 20) })
+      const messageRoom = msg.room
+      if (!messageRoom) {
+        console.log('[new_message event] new_message has no room, ignoring')
+        return // roomがない場合は無視
+      }
+      
+      // メンション判定: mentions配列に現在のユーザー名が含まれているか確認
+      const isMention = Array.isArray(msg.mentions) && msg.mentions.includes(username)
+      
+      // 現在のチャンネルと比較
+      setCurrentChannel(current => {
+        console.log('[new_message event] Processing new_message:', { messageRoom, currentChannel: current, isCurrent: messageRoom === current })
+        
+        if (messageRoom === current) {
+          // 現在のチャンネルのメッセージなので表示に追加（messageイベントが届かない場合のフォールバック）
+          console.log('[new_message event] new_message is for current channel, adding to messages as fallback')
+          setMessages(m => {
+            // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
+            const exists = m.find(existing => existing.id === msg.id)
+            if (exists) {
+              console.log('[new_message event] Message already exists in new_message handler, skipping:', msg.id)
+              return m
+            }
+            console.log('[new_message event] Adding new message from new_message event (fallback). Current count:', m.length)
+            return [...m, { 
+              ...msg, 
+              createdAt: new Date(msg.ts),
+              editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+              mentions: msg.mentions || [] // メンション情報を含める
+            }]
+          })
+        } else {
+          // 別チャンネルのメッセージなので未読としてマーク
+          console.log('[new_message event] Marking as unread for channel:', messageRoom)
+          setUnreadChannels(prev => ({
+            ...prev,
+            [messageRoom]: {
+              unread: (prev[messageRoom]?.unread || 0) + 1,
+              mentions: (prev[messageRoom]?.mentions || 0) + (isMention ? 1 : 0)
+            }
+          }))
+        }
+        return current // currentChannelは変更しない
+      })
+    })
+    socket.on('user_joined', (userData) => {
+      setOnlineUsers(prev => {
+        const exists = prev.find(u => u.username === userData.username)
+        if (!exists) {
+          return [...prev, userData]
+        }
+        return prev
+      })
+    })
+    socket.on('user_left', (userData) => {
+      setOnlineUsers(prev => prev.filter(u => u.username !== userData.username))
+    })
+    socket.on('online_users', (users) => {
+      console.log('[online_users event] Received online users:', users)
+      setOnlineUsers(users)
+    })
+    socket.on('message_edited', (updatedMessage) => {
+      setMessages(prev => prev.map(msg => 
+        msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, createdAt: new Date(updatedMessage.ts) } : msg
+      ))
+    })
+    socket.on('message_deleted', ({ id }) => {
+      setMessages(prev => prev.filter(msg => msg.id !== id))
+    })
+    socket.on('error', (error) => {
+      console.error('Socket error:', error.message)
+      // エラーメッセージを表示する場合はここで処理
+    })
+    
     const connectPromise = new Promise((resolve) => {
       socket.on('connect', () => {
         console.log('Socket.IO client connected successfully, joining room:', targetChannel)
@@ -327,6 +440,9 @@ export default function App() {
         resolve() // エラーでも続行
       })
     })
+    
+    // socketRefを設定（イベントハンドラが正しく動作するため）
+    socketRef.current = socket
     
     // メッセージ履歴を読み込む（接続確立後）
     try {
@@ -428,118 +544,6 @@ export default function App() {
       console.error('Error loading message history:', error)
       setIsLoadingMessages(false)
     }
-    
-    // Socket.IOイベントハンドラを登録（接続確立後、メッセージ履歴読み込み前）
-    socket.on('system', msg => {
-      setMessages(m => [...m, { system: true, content: msg }])
-    })
-    socket.on('message', msg => {
-      // messageイベントはio.to(room).emitで送信されるので、このsocketが参加しているroomのメッセージ
-      // 現在のチャンネルと一致することを確認してから追加
-      console.log('[message event] Received message event:', { id: msg.id, room: msg.room, username: msg.username, content: msg.content?.substring(0, 20) })
-      
-      // 現在のチャンネルを確認（状態更新関数内で最新値を取得）
-      setCurrentChannel(current => {
-        // メッセージのroomが現在のチャンネルと一致する場合のみ追加
-        if (msg.room === current) {
-          setMessages(m => {
-            // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
-            const exists = m.find(existing => existing.id === msg.id)
-            if (exists) {
-              console.log('[message event] Message already exists, skipping:', msg.id)
-              return m
-            }
-            console.log('[message event] Adding new message to list. Current count:', m.length)
-            return [...m, { 
-              ...msg, 
-              createdAt: new Date(msg.ts),
-              editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
-              mentions: msg.mentions || [] // メンション情報を含める
-            }]
-          })
-        } else {
-          console.log('[message event] Message room does not match current channel, ignoring:', { messageRoom: msg.room, currentChannel: current })
-        }
-        return current // currentChannelは変更しない
-      })
-    })
-    
-    // 全チャンネルの新規メッセージ通知（未読マーク用 + 現在のチャンネルのメッセージ表示）
-    socket.on('new_message', msg => {
-      console.log('[new_message event] Received new_message event:', { id: msg.id, room: msg.room, username: msg.username, content: msg.content?.substring(0, 20) })
-      const messageRoom = msg.room
-      if (!messageRoom) {
-        console.log('[new_message event] new_message has no room, ignoring')
-        return // roomがない場合は無視
-      }
-      
-      // メンション判定: mentions配列に現在のユーザー名が含まれているか確認
-      const isMention = Array.isArray(msg.mentions) && msg.mentions.includes(username)
-      
-      // 現在のチャンネルと比較
-      setCurrentChannel(current => {
-        console.log('[new_message event] Processing new_message:', { messageRoom, currentChannel: current, isCurrent: messageRoom === current })
-        
-        if (messageRoom === current) {
-          // 現在のチャンネルのメッセージなので表示に追加（messageイベントが届かない場合のフォールバック）
-          console.log('[new_message event] new_message is for current channel, adding to messages as fallback')
-          setMessages(m => {
-            // 重複チェック: 既に同じIDのメッセージがある場合は追加しない
-            const exists = m.find(existing => existing.id === msg.id)
-            if (exists) {
-              console.log('[new_message event] Message already exists in new_message handler, skipping:', msg.id)
-              return m
-            }
-            console.log('[new_message event] Adding new message from new_message event (fallback). Current count:', m.length)
-            return [...m, { 
-              ...msg, 
-              createdAt: new Date(msg.ts),
-              editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
-              mentions: msg.mentions || [] // メンション情報を含める
-            }]
-          })
-        } else {
-          // 別チャンネルのメッセージなので未読としてマーク
-          console.log('[new_message event] Marking as unread for channel:', messageRoom)
-          setUnreadChannels(prev => ({
-            ...prev,
-            [messageRoom]: {
-              unread: (prev[messageRoom]?.unread || 0) + 1,
-              mentions: (prev[messageRoom]?.mentions || 0) + (isMention ? 1 : 0)
-            }
-          }))
-        }
-        return current // currentChannelは変更しない
-      })
-    })
-    socket.on('user_joined', (userData) => {
-      setOnlineUsers(prev => {
-        const exists = prev.find(u => u.username === userData.username)
-        if (!exists) {
-          return [...prev, userData]
-        }
-        return prev
-      })
-    })
-    socket.on('user_left', (userData) => {
-      setOnlineUsers(prev => prev.filter(u => u.username !== userData.username))
-    })
-    socket.on('online_users', (users) => {
-      setOnlineUsers(users)
-    })
-    socket.on('message_edited', (updatedMessage) => {
-      setMessages(prev => prev.map(msg => 
-        msg.id === updatedMessage.id ? { ...msg, ...updatedMessage, createdAt: new Date(updatedMessage.ts) } : msg
-      ))
-    })
-    socket.on('message_deleted', ({ id }) => {
-      setMessages(prev => prev.filter(msg => msg.id !== id))
-    })
-    socket.on('error', (error) => {
-      console.error('Socket error:', error.message)
-      // エラーメッセージを表示する場合はここで処理
-    })
-    socketRef.current = socket
   }
 
   React.useEffect(() => {
