@@ -216,7 +216,8 @@ export default function App() {
         return [...m, { 
           ...msg, 
           createdAt: new Date(msg.ts),
-          editedAt: msg.editedAt ? new Date(msg.editedAt) : null
+          editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+          mentions: msg.mentions || [] // メンション情報を含める
         }]
       })
     })
@@ -230,7 +231,8 @@ export default function App() {
         return // roomがない場合は無視
       }
       
-      const isMention = msg.mentions?.includes?.(username) || false // 将来的なメンション機能に対応
+      // メンション判定: mentions配列に現在のユーザー名が含まれているか確認
+      const isMention = Array.isArray(msg.mentions) && msg.mentions.includes(username)
       
       // 現在のチャンネルと比較
       setCurrentChannel(current => {
@@ -250,7 +252,8 @@ export default function App() {
             return [...m, { 
               ...msg, 
               createdAt: new Date(msg.ts),
-              editedAt: msg.editedAt ? new Date(msg.editedAt) : null
+              editedAt: msg.editedAt ? new Date(msg.editedAt) : null,
+              mentions: msg.mentions || [] // メンション情報を含める
             }]
           })
         } else {
@@ -306,14 +309,87 @@ export default function App() {
   }, [])
 
 
+  // メッセージからメンションを抽出する関数
+  const extractMentions = (text) => {
+    // @username 形式のメンションを検出（日本語ユーザー名にも対応）
+    // @の後に続く文字列を取得（空白、改行、句読点まで）
+    const mentionRegex = /@([^\s@\.,!?;:]+)/g
+    const mentions = []
+    let match
+    while ((match = mentionRegex.exec(text)) !== null) {
+      mentions.push(match[1]) // username部分を取得
+    }
+    return [...new Set(mentions)] // 重複を除去
+  }
+
+  // メッセージ本文をメンション付きでレンダリングする関数
+  const renderMessageWithMentions = (content, mentions = []) => {
+    if (!content) return ''
+    
+    // 本文内の@username形式を全て検出してハイライト表示
+    const parts = []
+    let lastIndex = 0
+    const mentionRegex = /@([^\s@\.,!?;:]+)/g
+    let match
+    
+    while ((match = mentionRegex.exec(content)) !== null) {
+      // メンション前のテキスト
+      if (match.index > lastIndex) {
+        parts.push(content.substring(lastIndex, match.index))
+      }
+      
+      // メンション部分
+      const mentionedUsername = match[1]
+      // mentions配列に含まれている場合、または現在のユーザーの場合は強調表示
+      const isMentioned = Array.isArray(mentions) && mentions.includes(mentionedUsername)
+      const isCurrentUser = mentionedUsername === username
+      const shouldHighlight = isMentioned || isCurrentUser
+      
+      parts.push(
+        <Box
+          key={match.index}
+          component="span"
+          sx={{
+            bgcolor: shouldHighlight 
+              ? (isCurrentUser ? 'rgba(255, 193, 7, 0.3)' : 'rgba(237, 66, 69, 0.2)')
+              : 'rgba(88, 101, 242, 0.15)',
+            color: shouldHighlight
+              ? (isCurrentUser ? 'warning.main' : 'error.main')
+              : 'primary.main',
+            fontWeight: shouldHighlight ? 'bold' : 'medium',
+            px: 0.5,
+            borderRadius: 0.5,
+            mx: 0.25,
+            border: shouldHighlight ? '1px solid' : 'none',
+            borderColor: shouldHighlight 
+              ? (isCurrentUser ? 'warning.main' : 'error.main')
+              : 'transparent'
+          }}
+        >
+          @{mentionedUsername}
+        </Box>
+      )
+      lastIndex = match.index + match[0].length
+    }
+    
+    // 残りのテキスト
+    if (lastIndex < content.length) {
+      parts.push(content.substring(lastIndex))
+    }
+    
+    return parts.length > 0 ? parts : content
+  }
+
   const send = (e) => {
     e?.preventDefault()
     if (!socketRef.current || !content.trim()) {
       console.log('Cannot send message:', { socketExists: !!socketRef.current, hasContent: !!content.trim() })
       return
     }
-    console.log('Sending message:', { room: currentChannel, content: content.trim(), socketConnected: socketRef.current?.connected, socketId: socketRef.current?.id })
-    socketRef.current.emit('message', { room: currentChannel, content: content.trim() })
+    const trimmedContent = content.trim()
+    const mentions = extractMentions(trimmedContent)
+    console.log('Sending message:', { room: currentChannel, content: trimmedContent, mentions, socketConnected: socketRef.current?.connected, socketId: socketRef.current?.id })
+    socketRef.current.emit('message', { room: currentChannel, content: trimmedContent, mentions })
     setContent('')
   }
 
@@ -1080,8 +1156,9 @@ export default function App() {
                                     color: 'text.secondary'
                                   }
                                 }}
+                                component="span"
                               >
-                                {m.content}
+                                {renderMessageWithMentions(m.content, m.mentions || [])}
                               </Typography>
                               
                               {/* メニューボタン（ホバー時に表示、右端に固定） */}

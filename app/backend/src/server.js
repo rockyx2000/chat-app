@@ -344,10 +344,10 @@ io.on('connection', socket => {
     }
   })
 
-  socket.on('message', async ({ room, content }) => {
+  socket.on('message', async ({ room, content, mentions = [] }) => {
     const username = socket.data.username || 'anonymous'
     const picture = socket.data.picture || null
-    console.log(`Received message event from socket ${socket.id}:`, { room, content, username, socketRooms: Array.from(socket.rooms) })
+    console.log(`Received message event from socket ${socket.id}:`, { room, content, username, mentions, socketRooms: Array.from(socket.rooms) })
     
     try {
       const systemUser = await prisma.user.upsert({
@@ -389,7 +389,8 @@ io.on('connection', socket => {
         picture, 
         content, 
         ts: message.createdAt.getTime(),
-        editedAt: message.editedAt
+        editedAt: message.editedAt,
+        mentions: mentions || [] // メンションされたユーザー名の配列
       }
       // そのチャンネルのメッセージとして送信
       console.log(`Emitting message to room: ${room}`, payload)
@@ -407,7 +408,7 @@ io.on('connection', socket => {
     } catch (e) {
       // エラーが発生した場合でもリアルタイム通知は送信
       console.warn('persist failed:', e?.message)
-      const payload = { room: room, username, picture, content, ts: Date.now() }
+      const payload = { room: room, username, picture, content, ts: Date.now(), mentions: mentions || [] }
       io.to(room).emit('message', payload)
       io.emit('new_message', payload)
     }
