@@ -347,7 +347,11 @@ io.on('connection', socket => {
   socket.on('message', async ({ room, content, mentions = [] }) => {
     const username = socket.data.username || 'anonymous'
     const picture = socket.data.picture || null
-    console.log(`Received message event from socket ${socket.id}:`, { room, content, username, mentions, socketRooms: Array.from(socket.rooms) })
+    
+    // mentionsを安全に配列として扱う
+    const mentionsArray = Array.isArray(mentions) ? mentions : []
+    
+    console.log(`Received message event from socket ${socket.id}:`, { room, content, username, mentions: mentionsArray, socketRooms: Array.from(socket.rooms) })
     
     try {
       const systemUser = await prisma.user.upsert({
@@ -390,7 +394,7 @@ io.on('connection', socket => {
         content, 
         ts: message.createdAt.getTime(),
         editedAt: message.editedAt,
-        mentions: mentions || [] // メンションされたユーザー名の配列
+        mentions: mentionsArray // メンションされたユーザー名の配列
       }
       // そのチャンネルのメッセージとして送信
       console.log(`Emitting message to room: ${room}`, payload)
@@ -408,16 +412,20 @@ io.on('connection', socket => {
     } catch (e) {
       // エラーが発生した場合でもリアルタイム通知は送信
       console.warn('persist failed:', e?.message)
-      const payload = { room: room, username, picture, content, ts: Date.now(), mentions: mentions || [] }
+      console.error('Error details:', e)
+      const payload = { room: room, username, picture, content, ts: Date.now(), mentions: mentionsArray }
       io.to(room).emit('message', payload)
       io.emit('new_message', payload)
     }
   })
 
   // メッセージ編集イベント
-  socket.on('edit_message', async ({ room, messageId, content }) => {
+  socket.on('edit_message', async ({ room, messageId, content, mentions = [] }) => {
     const username = socket.data.username || 'anonymous'
     const picture = socket.data.picture || null
+    
+    // mentionsを安全に配列として扱う
+    const mentionsArray = Array.isArray(mentions) ? mentions : []
     
     // 認証チェック（簡易版）
     if (!username || username === 'anonymous' || username === 'user') {
@@ -464,6 +472,7 @@ io.on('connection', socket => {
         picture: updatedMessage.author?.avatarUrl || null,
         content: updatedMessage.content,
         ts: updatedMessage.createdAt,
+        mentions: mentionsArray,
         editedAt: updatedMessage.editedAt
       })
     } catch (error) {

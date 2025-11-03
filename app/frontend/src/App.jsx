@@ -97,6 +97,16 @@ export default function App() {
   // 未読メッセージとメンションを追跡: { channelName: { unread: number, mentions: number } }
   const [unreadChannels, setUnreadChannels] = React.useState({})
   const socketRef = React.useRef(null)
+  
+  // メンションサジェスト関連のstate
+  const [mentionSuggestions, setMentionSuggestions] = React.useState({
+    show: false,
+    query: '',
+    startIndex: 0,
+    endIndex: 0
+  })
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = React.useState(0)
+  const inputRef = React.useRef(null)
 
   React.useEffect(() => {
     const initializeApp = async () => {
@@ -320,6 +330,125 @@ export default function App() {
       mentions.push(match[1]) // username部分を取得
     }
     return [...new Set(mentions)] // 重複を除去
+  }
+
+  // @入力時のサジェスト処理
+  const handleContentChange = (e) => {
+    const newContent = e.target.value
+    const cursorPosition = e.target.selectionStart
+    
+    setContent(newContent)
+    
+    // カーソル位置より前のテキストを取得
+    const textBeforeCursor = newContent.substring(0, cursorPosition)
+    
+    // 最後の@の位置を探す
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    
+    // @が見つかり、かつ@の後が空白や句読点でない場合
+    if (lastAtIndex !== -1) {
+      const afterAt = textBeforeCursor.substring(lastAtIndex + 1)
+      // @の後に空白や改行、句読点がない場合はサジェストを表示
+      if (!afterAt.match(/[\s\n\.,!?;:]/)) {
+        const query = afterAt.toLowerCase()
+        setMentionSuggestions({
+          show: true,
+          query: query,
+          startIndex: lastAtIndex,
+          endIndex: cursorPosition
+        })
+        setSelectedSuggestionIndex(0)
+        return
+      }
+    }
+    
+    // サジェストを非表示
+    setMentionSuggestions(prev => ({ ...prev, show: false }))
+  }
+
+  // サジェストされたユーザーリストを取得
+  const getSuggestedUsers = () => {
+    if (!mentionSuggestions.show || !mentionSuggestions.query) {
+      return onlineUsers.filter(u => u.username !== username) // 自分以外
+    }
+    
+    const query = mentionSuggestions.query.toLowerCase()
+    return onlineUsers
+      .filter(user => 
+        user.username !== username && // 自分以外
+        user.username.toLowerCase().includes(query) // クエリに一致
+      )
+      .sort((a, b) => {
+        // 前方一致を優先
+        const aStarts = a.username.toLowerCase().startsWith(query)
+        const bStarts = b.username.toLowerCase().startsWith(query)
+        if (aStarts && !bStarts) return -1
+        if (!aStarts && bStarts) return 1
+        return a.username.localeCompare(b.username)
+      })
+  }
+
+  // サジェストからユーザー名を挿入
+  const insertMention = (selectedUser) => {
+    if (!selectedUser) return
+    
+    const beforeMention = content.substring(0, mentionSuggestions.startIndex)
+    const afterMention = content.substring(mentionSuggestions.endIndex)
+    const newContent = `${beforeMention}@${selectedUser.username} ${afterMention}`
+    
+    setContent(newContent)
+    setMentionSuggestions(prev => ({ ...prev, show: false }))
+    setSelectedSuggestionIndex(0)
+    
+    // カーソル位置を@usernameの後に設定
+    setTimeout(() => {
+      if (inputRef.current) {
+        const newCursorPos = beforeMention.length + selectedUser.username.length + 2 // @ + username + スペース
+        inputRef.current.setSelectionRange(newCursorPos, newCursorPos)
+        inputRef.current.focus()
+      }
+    }, 0)
+  }
+
+  // キーボードナビゲーション
+  const handleInputKeyDown = (e) => {
+    if (!mentionSuggestions.show) {
+      // サジェストが表示されていない場合は通常の処理
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        send(e)
+      }
+      return
+    }
+
+    const suggestedUsers = getSuggestedUsers()
+    
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setSelectedSuggestionIndex(prev => 
+          prev < suggestedUsers.length - 1 ? prev + 1 : 0
+        )
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setSelectedSuggestionIndex(prev => 
+          prev > 0 ? prev - 1 : suggestedUsers.length - 1
+        )
+        break
+      case 'Enter':
+      case 'Tab':
+        e.preventDefault()
+        if (suggestedUsers.length > 0) {
+          insertMention(suggestedUsers[selectedSuggestionIndex])
+        }
+        break
+      case 'Escape':
+        e.preventDefault()
+        setMentionSuggestions(prev => ({ ...prev, show: false }))
+        setSelectedSuggestionIndex(0)
+        break
+    }
   }
 
   // メッセージ本文をメンション付きでレンダリングする関数
@@ -1193,26 +1322,122 @@ export default function App() {
           {/* 入力エリア */}
           <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
             <Box component="form" onSubmit={send} sx={{ display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                value={content}
-                onChange={e => setContent(e.target.value)}
-                placeholder={`#${currentChannel} にメッセージを送信`}
-                variant="outlined"
-                size="small"
-                disabled={isConnecting}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'rgba(255,255,255,0.05)',
-                    '&:hover': {
-                      bgcolor: 'rgba(255,255,255,0.1)',
-                    },
-                    '&.Mui-focused': {
-                      bgcolor: 'rgba(255,255,255,0.1)',
+              <Box sx={{ position: 'relative', width: '100%' }}>
+                <TextField
+                  inputRef={inputRef}
+                  fullWidth
+                  value={content}
+                  onChange={handleContentChange}
+                  onKeyDown={handleInputKeyDown}
+                  onBlur={(e) => {
+                    // 少し遅延を入れて、サジェストリストのクリックイベントを処理できるようにする
+                    setTimeout(() => {
+                      setMentionSuggestions(prev => ({ ...prev, show: false }))
+                    }, 200)
+                  }}
+                  placeholder={`#${currentChannel} にメッセージを送信`}
+                  variant="outlined"
+                  size="small"
+                  disabled={isConnecting}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      bgcolor: 'rgba(255,255,255,0.05)',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.1)',
+                      },
+                      '&.Mui-focused': {
+                        bgcolor: 'rgba(255,255,255,0.1)',
+                      }
                     }
-                  }
-                }}
-              />
+                  }}
+                />
+                {/* メンションサジェストドロップダウン */}
+                {mentionSuggestions.show && getSuggestedUsers().length > 0 && (
+                  <Paper
+                    elevation={8}
+                    sx={{
+                      position: 'absolute',
+                      bottom: '100%',
+                      left: 0,
+                      right: 0,
+                      mb: 1,
+                      maxHeight: 200,
+                      overflow: 'auto',
+                      bgcolor: 'background.paper',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1,
+                      zIndex: 1000
+                    }}
+                  >
+                    <List dense>
+                      {getSuggestedUsers().map((user, index) => (
+                        <ListItem
+                          key={user.username}
+                          disablePadding
+                          onClick={() => insertMention(user)}
+                          onMouseDown={(e) => {
+                            // フォーカスが外れるのを防ぐ
+                            e.preventDefault()
+                          }}
+                          sx={{
+                            bgcolor: index === selectedSuggestionIndex 
+                              ? 'rgba(114, 137, 218, 0.2)' 
+                              : 'transparent',
+                            cursor: 'pointer',
+                            '&:hover': {
+                              bgcolor: 'rgba(114, 137, 218, 0.15)'
+                            }
+                          }}
+                        >
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 1, 
+                            p: 1.5, 
+                            width: '100%'
+                          }}>
+                            <Avatar 
+                              src={user.picture} 
+                              sx={{ width: 28, height: 28, bgcolor: 'primary.main' }}
+                            >
+                              {getInitials(user.username)}
+                            </Avatar>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography 
+                                variant="body2" 
+                                color="text.primary"
+                                sx={{ 
+                                  fontWeight: index === selectedSuggestionIndex ? 'bold' : 'normal',
+                                  fontSize: '0.875rem'
+                                }}
+                              >
+                                {user.username}
+                              </Typography>
+                              {user.email && (
+                                <Typography 
+                                  variant="caption" 
+                                  color="text.secondary"
+                                  sx={{ fontSize: '0.75rem' }}
+                                >
+                                  {user.email}
+                                </Typography>
+                              )}
+                            </Box>
+                            <Typography 
+                              variant="caption" 
+                              color="text.secondary"
+                              sx={{ fontSize: '0.75rem', ml: 1 }}
+                            >
+                              Enter
+                            </Typography>
+                          </Box>
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Paper>
+                )}
+              </Box>
               <IconButton 
                 type="submit" 
                 disabled={!content.trim() || isConnecting}
