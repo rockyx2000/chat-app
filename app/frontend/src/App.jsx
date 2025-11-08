@@ -76,6 +76,7 @@ export default function App() {
   const [currentChannel, setCurrentChannel] = React.useState('general')
   const currentChannelRef = React.useRef('general') // 最新のcurrentChannelを保持（イベントハンドラで使用）
   const [username, setUsername] = React.useState('user')
+  const usernameRef = React.useRef('user') // 最新のusernameを保持（イベントハンドラで使用）
   const [userPicture, setUserPicture] = React.useState(null)
   const [userEmail, setUserEmail] = React.useState(null)
   const [content, setContent] = React.useState('')
@@ -105,6 +106,11 @@ export default function App() {
   React.useEffect(() => {
     currentChannelRef.current = currentChannel
   }, [currentChannel])
+  
+  // usernameが更新されたら、usernameRefも更新
+  React.useEffect(() => {
+    usernameRef.current = username
+  }, [username])
   
   // メンションサジェスト関連のstate
   const [mentionSuggestions, setMentionSuggestions] = React.useState({
@@ -358,7 +364,10 @@ export default function App() {
       }
       
       // メンション判定: mentions配列に現在のユーザー名が含まれているか確認
-      const isMention = Array.isArray(msg.mentions) && msg.mentions.includes(username)
+      // usernameRefから最新のユーザー名を取得（状態更新の遅延を回避）
+      const currentUsername = usernameRef.current
+      const isMention = Array.isArray(msg.mentions) && msg.mentions.includes(currentUsername)
+      console.log('[new_message event] Mention check:', { mentions: msg.mentions, currentUsername, isMention })
       
       // currentChannelRefから最新のチャンネルを取得（状態更新の遅延を回避）
       const current = currentChannelRef.current
