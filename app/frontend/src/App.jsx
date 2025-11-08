@@ -393,14 +393,20 @@ export default function App() {
         })
       } else {
         // 別チャンネルのメッセージなので未読としてマーク
-        console.log('[new_message event] Marking as unread for channel:', messageRoom)
-        setUnreadChannels(prev => ({
-          ...prev,
-          [messageRoom]: {
-            unread: (prev[messageRoom]?.unread || 0) + 1,
-            mentions: (prev[messageRoom]?.mentions || 0) + (isMention ? 1 : 0)
+        console.log('[new_message event] Marking as unread for channel:', messageRoom, { isMention, currentUsername })
+        setUnreadChannels(prev => {
+          const newUnread = (prev[messageRoom]?.unread || 0) + 1
+          const newMentions = (prev[messageRoom]?.mentions || 0) + (isMention ? 1 : 0)
+          const updated = {
+            ...prev,
+            [messageRoom]: {
+              unread: newUnread,
+              mentions: newMentions
+            }
           }
-        }))
+          console.log('[new_message event] Updated unreadChannels:', updated)
+          return updated
+        })
       }
     })
     socket.on('user_joined', (userData) => {
@@ -1324,7 +1330,7 @@ export default function App() {
                         }
                       },
                       // 未読メッセージがあるチャンネルのハイライト（メンションがある場合のみ）
-                      ...(unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].mentions > 0 && {
+                      ...(unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].unread > 0 && unreadChannels[channel].mentions > 0 && {
                         bgcolor: 'rgba(237, 66, 69, 0.15)', // メンションがある場合のみ赤っぽく
                         animation: 'pulse 2s ease-in-out infinite',
                         '@keyframes pulse': {
@@ -1340,7 +1346,7 @@ export default function App() {
                         }
                       }),
                       // メンションがない未読チャンネルは控えめに（Discord風）
-                      ...(unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].mentions === 0 && {
+                      ...(unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].unread > 0 && unreadChannels[channel].mentions === 0 && {
                         bgcolor: 'rgba(255, 255, 255, 0.03)', // 非常に控えめなハイライト
                         '&:hover': {
                           bgcolor: 'rgba(255, 255, 255, 0.06)',
@@ -1359,7 +1365,7 @@ export default function App() {
                       }}
                     />
                     {/* メンション数の表示（メンションがある時だけ赤丸に数字） */}
-                    {unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].mentions > 0 && (
+                    {unreadChannels[channel] && currentChannel !== channel && unreadChannels[channel].unread > 0 && unreadChannels[channel].mentions > 0 && (
                       <Box sx={{ display: 'flex', alignItems: 'center', mr: 1 }}>
                         <Box
                           sx={{
